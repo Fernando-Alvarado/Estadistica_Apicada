@@ -1,0 +1,110 @@
+---
+title: "Ejercicio de clase 2"
+subtitle: "Fernando Alvarado Palacios"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Librerias que se van a usar en esta tarea
+library(ggplot2)
+library(dplyr)
+library(GGally)
+library(gridExtra)
+library(grid)
+library(cowplot)
+library(multcomp)
+
+#Cargando los datos con los que vamos a trabajar en esta tarea
+data <-   read.csv("./Data/Ejercicio2.csv") 
+
+```
+
+#### ANOVA o ANCOVA?
+
+En este caso, tenemos un problema de tipo ANOVA, ya que, aunque se nos presenta la edad del grupo, esta es constante para todos los individuos y solo indica que todos son mayores de 60 años.
+
+#### Analisis descriptivo de los datos
+
+```{r echo=FALSE, ggpairs_plot,fig.width=10, fig.height=3.5,  message=FALSE}
+#summary(data)
+
+
+# Genernado los grafico por pares de nuestra grafica
+pares <- ggpairs(data, mapping = aes(color = Med))
+
+# Extraer los gráficos individuales de ggpairs() y convertirlos en grobs, 
+# cambia el formado de la grafica para que la pueda pegar con el texto de una forma "bonita"
+pares_grob <- ggmatrix_gtable(pares)  # Esta función convierte ggmatrix a grob
+
+
+# Crear el texto como un objeto ggdraw() 
+#Libreria nueva para trabajar con texto y grafica a la vez
+texto_analisis <- ggdraw() + draw_text(
+  "Con esta gráfica por pares, podemos observar que los datos de la variable Y, 
+  que representa la carga viral, se distribuyen de manera normal. Por lo tanto, 
+  las pruebas de hipótesis son válidas. Además, parece que el medicamento no tiene 
+  un efecto significativo en la carga viral de los pacientes, ya que en el boxplot 
+  de Med vs. Y, las medias son casi iguales. También podemos notar que el medicamento 
+  se aplicó a un mayor número de personas.",
+  x = 0.01, y = 0.5, size = 12, hjust = 0, vjust = 0.5
+)
+
+# Organizar con `plot_grid()`
+plot_grid(pares_grob, texto_analisis, ncol = 2, rel_widths = c(1, 2))
+
+
+
+```
+
+
+#### Analisis usando un modelo de regresion lineal
+
+Analicemos los datos del medicamento para verificar si está funcionando, para ello, proponemos el modelo de regresion: 
+
+$$ \mathbf{Y} = B_0 + B_1 \cdot \mathbf{Med\_Si} $$
+
+
+```{r, echo=FALSE}
+
+modelo <- lm(Y ~ Med, data = data)
+#summary(modelo)  # Resumen de al parecer este modelo no nos esta explicando nada
+
+k = matrix(c(0,1),
+    ncol=2, nrow=1, byrow= TRUE)
+
+#summary(glht(modelo, linfct = k, rhs= c(0)), test=Ftest())
+
+
+```
+
+
+
+
+```{r echo=FALSE, ggpairs_plot1,fig.width=10, fig.height=3.5,  message=FALSE}
+
+#Grafica
+botplot_data <- ggplot(data, aes(x=Med, y= Y, color=Med ))+
+                geom_boxplot()+
+                geom_point()
+
+#Paasando a grob
+botplot_data_grob <- ggplotGrob(botplot_data)  # Convierte correctamente un ggplot a grob
+  # Esta función convierte ggmatrix a grob
+
+
+
+texto_analisis_box <- ggdraw() + draw_text(
+  "Al analizar el summary de nuestro modelo de regresión lineal, observamos que, con
+   un p-value de 0.9056, no hay suficiente evidencia estadística para rechazar la 
+   hipótesis de que  B1=0. Esto sugiere que la variable Medicamento no tiene un efecto
+   significativo sobre la carga viral en pacientes mayores de 60 años. Por lo tanto,
+   el modelo no respalda la idea de que el medicamento tenga un impacto en la carga viral.",
+  x = 0.01, y = 0.5, size = 12, hjust = 0, vjust = 0.5
+)
+
+# Organizar con `plot_grid()`
+plot_grid(botplot_data_grob, texto_analisis_box, ncol = 2, rel_widths = c(1, 2))
+
+```
