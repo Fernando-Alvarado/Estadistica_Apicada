@@ -1,0 +1,77 @@
+---
+title: "Ejercicio de clase 10"
+subtitle: "Tarea 1"
+
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Librerias que se van a usar en esta tarea
+library(readxl)
+library(ggplot2)
+library(dplyr)
+
+#Manejo de Formato de mi MD
+library(GGally)
+library(gridExtra)
+library(grid)
+library(cowplot)
+library(corrplot)
+
+
+#Cargar los arvhivos
+
+#Cargando los datos con los que vamos a trabajar en esta tarea
+data <- read.csv("Data/wine.txt", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+
+```
+
+```{r echo=FALSE, message=FALSE}
+
+summary(data)
+
+str(data)
+
+```
+
+Podemos observar que nuestro Dataframe, cuenta con 14 columanas con algunas caracteristicas de los vinos, como tipo de alcohol, la cantidad de alcohl, su alcalinidad, etc. describiendo algunas medidas estadisticas como su media, sus cuartiles, el minimo y maximo valor.
+
+
+```{r echo=FALSE, message=FALSE}
+#Haciendo el la matriz de correlacion
+
+matriz_correlacion <- cor(data[, -1], use = "pairwise.complete.obs")
+corrplot(matriz_correlacion, method = "color", type = "lower", tl.cex = 0.8, addCoef.col = "black")
+
+```
+
+En esta grafica podemos observar las correlaciones de nuestros datos, donde las correlaciones mas fuertes son:
+
+- Flavanoids y Total_phenols:           0.86 (muy fuerte)
+- OD y Total_phenols:                   0.79 (fuerte)
+- OD y Flavanoids:                      0.79 (fuerte)
+- Proline y Alcohol:                    0.64 (moderada)
+- Proanthocyanins y Total_phenols:      0.61 (moderada)
+- Proline y OD:                         0.57 (moderada)
+- Hue y Malic_acid                      0.56 (moderada)
+- Intensity y Alcohol                   0.55 (moderada)
+- Hue y Flavanoids                      0.54 (moderada)
+- Nonflavanoid_phenols y Flavanoids    -0.54 (moderada)
+- Hue e Intensity:                     -0.52 (relación inversa fuerte)
+
+De estas relaciones  escogemos estas varaibles "Flavanoids, Total_phenols, OD, Proline, Alcohol, Proanthocyanins" para hacer las demas graficas.
+
+
+```{r echo=FALSE}
+vars_selesccionadas <- c("Flavanoids", "Total_phenols", "OD", "Proline", "Alcohol", "Proanthocyanins")
+
+```
+
+
+
+
+# Copy aaa
+```{r echo=FALSE}
+
+
+```
