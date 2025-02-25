@@ -1,0 +1,96 @@
+---
+title: "Ejercicio de clase 10"
+subtitle: "Tarea 1"
+
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Librerias que se van a usar en esta tarea
+library(readxl)
+library(ggplot2)
+library(dplyr)
+
+#Manejo de Formato de mi MD
+library(GGally)
+library(gridExtra)
+library(grid)
+library(cowplot)
+library(corrplot)
+library(andrews)  #curvas de Andrws
+library(TeachingDemos) #Libreria para las caras de chernoff
+
+#Cargar los arvhivos
+
+data <- read.csv("Data/Diabetes.txt", header = TRUE, sep = " ", stringsAsFactors = FALSE)
+
+
+combinacion <- c("glufast", "relwt", "instest", "glutest", "sspg")
+
+```
+
+```{r echo=FALSE, message=FALSE}
+
+summary(data)
+
+str(data)
+
+```
+
+Texto 
+
+
+```{r echo=FALSE,ggpairs_plot,fig.width=10, fig.height=10,  message=FALSE}
+#Haciendo el la matriz de correlacion
+
+matriz_correlacion <- cor(data, use = "pairwise.complete.obs")
+corrplot(matriz_correlacion, method = "color", type = "lower", tl.cex = 0.8, addCoef.col = "black")
+
+```
+
+Texto del corrplot
+
+
+```{r echo=FALSE, message=FALSE}
+
+ggpairs(data) #Grafica por pares
+```
+
+
+```{r echo=FALSE,ggpairs_plot2,fig.width=5, fig.height=5, message=FALSE}
+    graficas_estrellas <- function(set, texto) {
+        data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
+        stars(data_subset, draw.segments = TRUE, col.stars = "black", main = texto) 
+    }
+
+
+  graficas_estrellas(combinacion, "Grafica estrellas")
+```
+
+#### Caras de Chernoff
+
+##### Opcion 1
+
+```{r echo=FALSE,ggpairs_plot3,fig.width=5, fig.height=5, message=FALSE}
+
+graficas_caras <- function(set) {
+  data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
+  faces2(data_subset)
+}
+
+graficas_caras(combinacion)
+
+```
+
+#### Curvas de Andrews
+
+```{r echo=FALSE,ggpairs_plot5,fig.width=5, fig.height=5, message=FALSE}
+
+curvas_de_Andrews <- function(set, texto) {
+  data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
+  andrews(data_subset, clr  = data$Class, , main = texto)
+}
+
+curvas_de_Andrews(combinacion, "Curvas de Andrews")
+
+```

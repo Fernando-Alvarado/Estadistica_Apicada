@@ -1,5 +1,5 @@
 ---
-title: "Ejercicio de clase 10"
+title: "Ejercicio de clase 9"
 subtitle: "Tarea 1"
 
 ---
@@ -18,6 +18,7 @@ library(grid)
 library(cowplot)
 library(corrplot)
 library(andrews) #Libreria para las caras de chernoff
+library(TeachingDemos) #Libreria para las caras de chernoff
 
 
 #Cargar los arvhivos
