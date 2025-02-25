@@ -17,12 +17,32 @@ library(gridExtra)
 library(grid)
 library(cowplot)
 library(corrplot)
+library(andrews) #Libreria para las caras de chernoff
 
 
 #Cargar los arvhivos
 
 #Cargando los datos con los que vamos a trabajar en esta tarea
 data <- read.csv("Data/wine.txt", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+data$Class <- as.factor(data$Class) #Pasando a factor nuestra varible categorica
+
+
+vars_selesccionadas <- c("Flavanoids", "Total_phenols", "OD", "Proline", "Alcohol", "Proanthocyanins")
+data_subset <- data[, vars_selesccionadas]
+
+
+graficas_caras <- function(set) {
+  data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
+  faces2(data_subset)
+}
+
+
+#Hacer nuestro Clusters
+a <- c("Flavanoids", "Alcohol", "Proline",  "OD", "Proanthocyanins", "Total_phenols")
+b <- c("Proanthocyanins", "Proline", "Total_phenols", "OD", "Flavanoids", "Alcohol")
+
+
+
 
 ```
 
@@ -37,7 +57,9 @@ str(data)
 Podemos observar que nuestro Dataframe, cuenta con 14 columanas con algunas caracteristicas de los vinos, como tipo de alcohol, la cantidad de alcohl, su alcalinidad, etc. describiendo algunas medidas estadisticas como su media, sus cuartiles, el minimo y maximo valor.
 
 
-```{r echo=FALSE, message=FALSE}
+
+
+```{r echo=FALSE,ggpairs_plot,fig.width=10, fig.height=10,  message=FALSE}
 #Haciendo el la matriz de correlacion
 
 matriz_correlacion <- cor(data[, -1], use = "pairwise.complete.obs")
@@ -62,16 +84,63 @@ En esta grafica podemos observar las correlaciones de nuestros datos, donde las 
 De estas relaciones  escogemos estas varaibles "Flavanoids, Total_phenols, OD, Proline, Alcohol, Proanthocyanins" para hacer las demas graficas.
 
 
-```{r echo=FALSE}
-vars_selesccionadas <- c("Flavanoids", "Total_phenols", "OD", "Proline", "Alcohol", "Proanthocyanins")
+```{r echo=FALSE, message=FALSE}
+
+ggpairs(data_subset, , mapping = aes(color = data$Class)) #Grafica por pares
+```
+
+En esta grafica, ya podemos ver mas a detalle como se distribuyen nuestras variables por cada grupo y sus correlaciones.
+
+### Identificacion de Clusters
+
+Para la identificacion de clusters, se realizaron 20 combinaciones de las 6 variables elegidas, se graficaron y se eligieron las dos graficas donde se podia ver mejor la separacion de grupos.
+
+Donde las mejores entradas fueron:
+- Opcion 1 : "Flavanoids", "Alcohol", "Proline",  "OD", "Proanthocyanins", "Total_phenols"
+- Opcion 2 : "Proanthocyanins", "Proline", "Total_phenols", "OD", "Flavanoids", "Alcohol"
+
+
+#### Graficas de estrellas
+```{r echo=FALSE,ggpairs_plot2,fig.width=5, fig.height=5, message=FALSE}
+graficas_estrellas <- function(set, texto) {
+  data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
+  stars(data_subset, draw.segments = TRUE, col.stars = "black", main = texto) 
+}
+
+graficas_estrellas(a, "Opcion 1")
+graficas_estrellas(b, "Opcion 2")
+
+```
+
+#### Caras de Chernoff
+
+##### Opcion 1
+
+```{r echo=FALSE,ggpairs_plot3,fig.width=5, fig.height=5, message=FALSE}
+
+graficas_caras(a)
+
+```
+
+##### Opcion 2
+
+```{r echo=FALSE,ggpairs_plot4,fig.width=5, fig.height=5, message=FALSE}
+
+graficas_caras(b)
 
 ```
 
 
+#### Curvas de Andrews
 
+```{r echo=FALSE,ggpairs_plot5,fig.width=5, fig.height=5, message=FALSE}
 
-# Copy aaa
-```{r echo=FALSE}
+curvas_de_Andrews <- function(set, texto) {
+  data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
+  andrews(data_subset, clr  = data$Class, , main = texto)
+}
 
+curvas_de_Andrews(a, "Opcion 1")
+curvas_de_Andrews(b, "Opcion 2")
 
 ```
