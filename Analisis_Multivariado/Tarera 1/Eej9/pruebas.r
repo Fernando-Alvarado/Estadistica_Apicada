@@ -48,6 +48,8 @@ orden_total <- list(
   orden_1, orden_2, orden_3, orden_4, orden_5, orden_6, orden_7, orden_8, orden_9, orden_10
 )
 
+a <- c("Flavanoids", "Alcohol", "Proline",  "OD", "Proanthocyanins", "Total_phenols")
+b <- c("Proanthocyanins", "Proline", "Total_phenols", "OD", "Flavanoids", "Alcohol")
 #--------------------------------------------------------------------------------
 
 
@@ -57,18 +59,37 @@ vars_selesccionadas <- c( "Flavanoids", "Total_phenols", "OD", "Proline", "Alcoh
 
 data_subset <- data[, vars_selesccionadas]
 
-graficas_estrellas <- function(set, texto) {
+graficas_estrellas <- function(set, texto, s=3) {#ir descartando varios tipos de graficas
   x11()  # Abre nueva ventana de gráficos
   data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
-  stars(data_subset, draw.segments = TRUE, col.stars = "black", main = texto) 
+  if(s==0){
+    clusters <- kmeans(data_subset, centers = 3)$cluster
+    stars(data_subset,  lwd = 2, col.stars = rainbow(3)[clusters] , main = texto)
+  }else if (s==1) {
+     desvios <- apply(data_subset, 1, sd)
+     colores <- ifelse(desvios > quantile(desvios, 0.95), "red", "black")
+     stars(data_subset, lwd = 2, col.stars=colores)
+  }else  {
+     stars(data_subset, draw.segments = TRUE, col.stars = "black", main = texto) 
+  }
 }
 
 
-a <- c("Flavanoids", "Alcohol", "Proline",  "OD", "Proanthocyanins", "Total_phenols")
-b <- c("Proanthocyanins", "Proline", "Total_phenols", "OD", "Flavanoids", "Alcohol")
+graficas_estrellas(a, "Opcion 1")
+graficas_estrellas(b, "Opcion 2", 0) #con clusters
+graficas_estrellas(b, "Opcion 2", 1) #con clusters
 
-#graficas_estrellas(a, "Opcion 1")
-#graficas_estrellas(b, "Opcion 2")
+#Para las estrellas 
+#clusters <- kmeans(diabetes[, ], centers = 3)$cluster
+#stars(diabetes[, ], lwd = 2, col.stars = rainbow(3)[clusters])
+
+
+#Para estrellas
+
+
+
+
+
 
 
 graficas_caras <- function(set, texto) {
@@ -79,8 +100,8 @@ graficas_caras <- function(set, texto) {
    title(main = texto)
 }
 
-graficas_caras(a, "Opcion 1")
-graficas_caras(b, "Opcion 2")
+#graficas_caras(a, "Opcion 1")
+#graficas_caras(b, "Opcion 2")
 
 
 library(andrews)

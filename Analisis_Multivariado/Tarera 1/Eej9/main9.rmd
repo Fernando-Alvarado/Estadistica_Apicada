@@ -38,12 +38,22 @@ graficas_caras <- function(set) {
 }
 
 
+graficas_estrellas <- function(set, texto, s=3) {#ir descartando varios tipos de graficas
+  data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
+  if(s==0){
+    clusters <- kmeans(data_subset, centers = 3)$cluster
+    stars(data_subset,  lwd = 2, col.stars = rainbow(3)[clusters] , main = texto)
+  }else if (s==1) {
+     desvios <- apply(data_subset, 1, sd)
+     colores <- ifelse(desvios > quantile(desvios, 0.95), "red", "black")
+     stars(data_subset, lwd = 2, col.stars=colores)
+  }else  {
+     stars(data_subset, draw.segments = TRUE, col.stars = "black", main = texto) 
+  }
+}
 #Hacer nuestro Clusters
 a <- c("Flavanoids", "Alcohol", "Proline",  "OD", "Proanthocyanins", "Total_phenols")
 b <- c("Proanthocyanins", "Proline", "Total_phenols", "OD", "Flavanoids", "Alcohol")
-
-
-
 
 ```
 
@@ -102,22 +112,38 @@ Donde las mejores entradas fueron:
 
 
 #### Graficas de estrellas
-```{r echo=FALSE,ggpairs_plot2,fig.width=5, fig.height=5, message=FALSE}
-graficas_estrellas <- function(set, texto) {
-  data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
-  stars(data_subset, draw.segments = TRUE, col.stars = "black", main = texto) 
-}
+```{r echo=FALSE,ggpairs_plot2,fig.width=4, fig.height=4, message=FALSE}
 
 graficas_estrellas(a, "Opcion 1")
 graficas_estrellas(b, "Opcion 2")
 
 ```
 
+```{r echo=FALSE,ggpairs_plot211,fig.width=4, fig.height=4, message=FALSE}
+
+graficas_estrellas(a, "Opcion 1", 0)
+graficas_estrellas(b, "Opcion 2", 0)
+
+```
+
+En esta gráfica, podemos visualizar de manera más clara la agrupación de los elementos. Para ello, dividimos manualmente los datos en tres grupos utilizando la media.
+
+
+```{r echo=FALSE,ggpairs_plot12,fig.width=4, fig.height=4, message=FALSE}
+
+graficas_estrellas(a, "Opcion 1", 1)
+graficas_estrellas(b, "Opcion 2", 1)
+
+```
+
+En esta gráfica, podemos visualizar los outliers. Para identificarlos, utilizamos los cuantiles y consideramos como outlier cualquier dato que estuviera fuera del cuantil 0.95, el cual fue resaltado en rojo
+
+
 #### Caras de Chernoff
 
 ##### Opcion 1
 
-```{r echo=FALSE,ggpairs_plot3,fig.width=5, fig.height=5, message=FALSE}
+```{r echo=FALSE,ggpairs_plot3,fig.width=4, fig.height=4, message=FALSE}
 
 graficas_caras(a)
 
@@ -125,7 +151,7 @@ graficas_caras(a)
 
 ##### Opcion 2
 
-```{r echo=FALSE,ggpairs_plot4,fig.width=5, fig.height=5, message=FALSE}
+```{r echo=FALSE,ggpairs_plot4,fig.width=4, fig.height=4, message=FALSE}
 
 graficas_caras(b)
 
@@ -134,7 +160,7 @@ graficas_caras(b)
 
 #### Curvas de Andrews
 
-```{r echo=FALSE,ggpairs_plot5,fig.width=5, fig.height=5, message=FALSE}
+```{r echo=FALSE,ggpairs_plot5,fig.width=4, fig.height=4, message=FALSE}
 
 curvas_de_Andrews <- function(set, texto) {
   data_subset <- data[, set, drop = FALSE]  # Asegurar que sea data frame
