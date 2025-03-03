@@ -46,7 +46,7 @@ graficas_estrellas <- function(set, texto, s=3) {#ir descartando varios tipos de
   }else if (s==1) {
      desvios <- apply(data_subset, 1, sd)
      colores <- ifelse(desvios > quantile(desvios, 0.95), "red", "black")
-     stars(data_subset, lwd = 2, col.stars=colores)
+     stars(data_subset, lwd = 2, col.stars=colores, main = texto)
   }else  {
      stars(data_subset, draw.segments = TRUE, col.stars = "black", main = texto) 
   }
@@ -106,23 +106,21 @@ En esta grafica, ya podemos ver mas a detalle como se distribuyen nuestras varia
 
 Para la identificacion de clusters, se realizaron 20 combinaciones de las 6 variables elegidas, se graficaron y se eligieron las dos graficas donde se podia ver mejor la separacion de grupos.
 
-Donde las mejores entradas fueron:
+Donde la mejor entrada fue:
 - Opcion 1 : "Flavanoids", "Alcohol", "Proline",  "OD", "Proanthocyanins", "Total_phenols"
-- Opcion 2 : "Proanthocyanins", "Proline", "Total_phenols", "OD", "Flavanoids", "Alcohol"
 
 
 #### Graficas de estrellas
 ```{r echo=FALSE,ggpairs_plot2,fig.width=4, fig.height=4, message=FALSE}
 
-graficas_estrellas(a, "Opcion 1")
-graficas_estrellas(b, "Opcion 2")
+graficas_estrellas(a, "Grficas estrellas")
 
 ```
 
 ```{r echo=FALSE,ggpairs_plot211,fig.width=4, fig.height=4, message=FALSE}
 
-graficas_estrellas(a, "Opcion 1", 0)
-graficas_estrellas(b, "Opcion 2", 0)
+graficas_estrellas(a, "Grafica estrellas Grupos", 0)
+
 
 ```
 
@@ -131,8 +129,8 @@ En esta gráfica, podemos visualizar de manera más clara la agrupación de los 
 
 ```{r echo=FALSE,ggpairs_plot12,fig.width=4, fig.height=4, message=FALSE}
 
-graficas_estrellas(a, "Opcion 1", 1)
-graficas_estrellas(b, "Opcion 2", 1)
+graficas_estrellas(a, "Grafica estrellas outliers", 1)
+
 
 ```
 
@@ -141,21 +139,12 @@ En esta gráfica, podemos visualizar los outliers. Para identificarlos, utilizam
 
 #### Caras de Chernoff
 
-##### Opcion 1
-
 ```{r echo=FALSE,ggpairs_plot3,fig.width=4, fig.height=4, message=FALSE}
 
 graficas_caras(a)
 
 ```
 
-##### Opcion 2
-
-```{r echo=FALSE,ggpairs_plot4,fig.width=4, fig.height=4, message=FALSE}
-
-graficas_caras(b)
-
-```
 
 
 #### Curvas de Andrews
@@ -167,7 +156,7 @@ curvas_de_Andrews <- function(set, texto) {
   andrews(data_subset, clr  = data$Class, , main = texto)
 }
 
-curvas_de_Andrews(a, "Opcion 1")
-curvas_de_Andrews(b, "Opcion 2")
+curvas_de_Andrews(a, "Curvas de Andrews")
+#curvas_de_Andrews(b, "Opcion 2")
 
 ```
