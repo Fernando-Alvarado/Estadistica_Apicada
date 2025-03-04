@@ -4,108 +4,42 @@
 
 library(ggplot2)
 library(tidyr)
-#Inciso A
-alpha <- 1/2
-beta <- 7 / 2
-
-# Calcular P(X > 10) de la distribucion gamma
-p_10 <- pgamma(10, shape = alpha, scale = 1 / beta)
-lam_10 <- 1 - p_10
-
-#print(p_10)
-# Mostrar resultado
-#print(lam_10)
-
-
-
-#Inciso B
-
-p_b <- pgamma(10, shape = 300 * alpha, scale = 1 / beta)
-
-
-print(p_b)
-
-print(1 - p_b)
-
-
-#Graficas 
-
-observaciones <- c(879, 903, 948, 939, 893) #Dtos que nos da las observaciones
-
-#Graficas
-valores = seq(0, 1000, length.out = 500)
-
-# Crear data frame con la distribución gamma inicial
-df_sim <- data.frame(
-  x = valores,
-  priori = dgamma(valores, shape = alpha, rate = beta)
-)
-
-# Agregar columnas de observaciones iterativamente
-for (i in 1:5) {
-  df_sim[, paste0("obs_", i)] <- dgamma(df_sim$x, 
-                                        shape = 1 * (alpha + sum(observaciones[1:i])),
-                                        rate = beta + i)
-}
-
-df_mod <- df_sim %>%
-  pivot_longer(cols = -x, names_to = "grupo", values_to = "y")
-
-head(df_mod)
-
-# Mostrar gráfico
-#x11()  # Abrir ventana de gráficos (opcional)
-ggplot(df_mod, aes(x = x, y = y, color = grupo)) +
-  geom_line() +
-  theme_minimal()
-
-
-
-tamaño = 500
-valores2 = seq(0, 100, length.out = tamaño)
-lambdaSim = rgamma(1, shape = alpha, rate = beta)
-
-print(lambdaSim)
-
-  df_prueba <- data.frame(
-    x = valores2,
-    y = dpois(valores2, lambda = lambdaSim)
-  )
-
-  ggplot(df_prueba, aes(x = x, y = y)) +
-    geom_point() +
-    theme_minimal() +
-    labs(title = "Distribución Poisson",
-         x = "x",
-         y = "y") +
-    theme(plot.title = element_text(hjust = 0.5))
-  
-  
-  
-  
-  
-  #-----------------------Codigo Oswaldo --------------
-  
-  x <- 0:15
-  curve(dgamma(x, 7/2, rate = 1/2), 0, 16)
-  
-  
-  
-  x <- 0:1000
-  curve(dgamma(x, 79.53, rate = 5.5), 0, 30)
-  
-  
-  
-  
-  
-  #-------------Codigo chat
+#Cosas para fijar 
   # Fijar semilla para reproducibilidad
   set.seed(123)
   
-  # Parámetros de la distribución a priori Gamma(7/2, 1/2)
+  tamaño = 10000
+  
+
   alpha_prior <- 7/2
   beta_prior <- 1/2
-  
+
+
+
+#Ejercicio 1
+#Inciso A ---------------------------------------------------------------
+
+ # Parámetros de la distribución a priori Gamma(7/2, 1/2)
+
+#Print esperanza simulada
+muestras <- rgamma(tamaño, shape = alpha_prior, rate = beta_prior)
+esperanza_simulada <- mean(muestras)
+print(esperanza_simulada)
+
+
+# Calcular P(X > 10) de la distribucion gamma
+p_10 <- pgamma(10, shape = alpha_prior, rate = beta_prior)
+lam_10 <- 1 - p_10
+
+print(p_10)
+# Mostrar resultado
+print(lam_10)
+
+
+
+
+#Inciso B ---------------------------------------------------------------
+
   # Parámetro "real" de lambda (para la simulación)
   lambda_real <- 7
   
@@ -117,17 +51,66 @@ print(lambdaSim)
   alpha_posterior <- alpha_prior + sum(X)
   beta_posterior <- beta_prior + length(X)
   
-  # Simular muestras de la distribución a priori y a posteriori
-  samples_prior <- rgamma(10000, shape = alpha_prior, rate = beta_prior)
-  samples_posterior <- rgamma(10000, shape = alpha_posterior, rate = beta_posterior)
+  # Simular muestras de la distribución a priori y a posteriori originales de nuestro problema
+  samples_prior <- rgamma(tamaño, shape = alpha_prior, rate = beta_prior)
+  samples_posterior <- rgamma(tamaño, shape = alpha_posterior, rate = beta_posterior)
+
+
+  #Haciendo la suma de las observaciones
+
+  observaciones <- c(879, 903, 948, 939, 893) / 300 #Dtos que nos da las observaciones
+  observaciones 
+
+for (i in 1:5) {
+  assign(paste0("obs_", i), 
+         rgamma(tamaño, shape = alpha + sum(observaciones[1:i]), rate = beta + i))
+}
+
+
+# Calcular P(X > 10) de la distribucion gamma dasd las observaciones 
+proba_10 <- pgamma(10, shape = alpha + sum(observaciones[1:5]), rate = beta + 5)
+proba_10_datos <- 1 - proba_10
+
+print(proba_10)
+# Mostrar resultado
+print(proba_10_datos) #Probabilidad de que sea mayor a 10
+
+#Esta proba me da 0, que que con las cobservaciones la muestra se cargo a valores mas peuqeños
+
+  
+ # Crear el dataframe de valores simulados
+df_datos <- data.frame(
+  value = c(samples_prior, samples_posterior, obs_1, obs_2, obs_3, obs_4, obs_5),
+  distribucion = rep(c("Prior", "Posterior", "Con 1 obs", "Con 2 obs", "Con 3 obs", "Con 4 obs", "Con 5 obs"), 
+                     each = tamaño)  # Asegurar que cada grupo tiene `tamaño` elementos
+)
+
+
+
+# Crear un dataframe separado para las medias
+medias <- data.frame(
+  distribucion = c("Prior", "Posterior", "Con 1 obs", "Con 2 obs", "Con 3 obs", "Con 4 obs", "Con 5 obs"),
+  media = c(mean(samples_prior), mean(samples_posterior), mean(obs_1), mean(obs_2), mean(obs_3), mean(obs_4), mean(obs_5))
+)
+
+
+
+ggplot(df_datos, aes(x = value, fill = distribucion)) +
+  geom_density(alpha = 0.5) +
+  geom_vline(data = medias, aes(xintercept = media, color = distribucion), 
+             linetype = "dashed", linewidth = 1) +  
+  geom_text(data = medias, aes(x = media, y = -0.1, label = round(media, 2)),  
+            angle = 90, vjust = 1, size = 4) + 
+  labs(title = "Distribuciones a Priori y Posteriori con sus Medias",
+       x = "Valor",
+       y = "Densidad") +
+  xlim(0, 16) +#Para que se vean mejor la grafica
+  theme_minimal()
+
   
   
   
   
-  # Graficar la comparación entre la distribución a priori y a posteriori
-  hist(samples_prior, probability = TRUE, col = rgb(0,0,1,0.5), 
-       main = "Distribución a Priori vs Posteriori", xlab = "Lambda", breaks = 50)
-  hist(samples_posterior, probability = TRUE, col = rgb(1,0,0,0.5), add = TRUE, breaks = 50)
-  legend("topright", legend = c("A Priori", "Posteriori"), 
-         fill = c(rgb(0,0,1,0.5), rgb(1,0,0,0.5)))
+  
+  
   
