@@ -24,6 +24,7 @@ library(tidyr)
 #Print esperanza simulada
 muestras <- rgamma(tamaño, shape = alpha_prior, rate = beta_prior)
 esperanza_simulada <- mean(muestras)
+print("Esperanza simulada")
 print(esperanza_simulada)
 
 
@@ -33,6 +34,7 @@ lam_10 <- 1 - p_10
 
 print(p_10)
 # Mostrar resultado
+print("Poba de que sea mayor a 10") 
 print(lam_10)
 
 
@@ -63,12 +65,12 @@ print(lam_10)
 
 for (i in 1:5) {
   assign(paste0("obs_", i), 
-         rgamma(tamaño, shape = alpha + sum(observaciones[1:i]), rate = beta + i))
+         rgamma(tamaño, shape = alpha_prior + sum(observaciones[1:i]), rate = beta_prior + i))
 }
 
 
 # Calcular P(X > 10) de la distribucion gamma dasd las observaciones 
-proba_10 <- pgamma(10, shape = alpha + sum(observaciones[1:5]), rate = beta + 5)
+proba_10 <- pgamma(10, shape = alpha_prior + sum(observaciones[1:5]), rate = beta_prior + 5)
 proba_10_datos <- 1 - proba_10
 
 print(proba_10)
@@ -94,7 +96,6 @@ medias <- data.frame(
 )
 
 
-
 ggplot(df_datos, aes(x = value, fill = distribucion)) +
   geom_density(alpha = 0.5) +
   geom_vline(data = medias, aes(xintercept = media, color = distribucion), 
@@ -104,7 +105,7 @@ ggplot(df_datos, aes(x = value, fill = distribucion)) +
   labs(title = "Distribuciones a Priori y Posteriori con sus Medias",
        x = "Valor",
        y = "Densidad") +
-  xlim(0, 16) +#Para que se vean mejor la grafica
+  xlim(0, 13) +#Para que se vean mejor la grafica
   theme_minimal()
 
   
