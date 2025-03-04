@@ -108,9 +108,3 @@ ggplot(df_datos, aes(x = value, fill = distribucion)) +
   theme_minimal()
 
   
-  
-  
-  
-  
-  
-  
