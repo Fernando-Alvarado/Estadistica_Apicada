@@ -1,0 +1,343 @@
+---
+title: "Repaso RLM Parte 3"
+subtitle: "El Problema tipo ANOVA y pruebas de hipótesis"
+author: "Seminario de Estadística 2024-1"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+date: "28/08/2023"
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 3.5),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+```
+
+# Recordatorio
+Durante las dos ayudantías que hemos tenido, nos hemos enfrentado a muchas preguntas, desde ¿Qué es un modelo de regresión?. Hasta ¿Cómo trabajar con variables categóricas?
+
+Sin embargo, aún nos queda un largo tramo hasta poder hacer todo un modelo de regresión sobre cualquier tipo de datos, lo primero que debemos de conocer es un problema que se utiliza mucho, es el problema tipo ANOVA, sin embargo, lo mezclaremos con algo que nosotros conocemos desde inferencia estadística, que son las pruebas de hipótesis que utilizaremos para nuestros modelos, para esto, primero vamos a responder algo que se quedó desde hace mucho tiempo, sobre la informaciónde un summary, para esto, veamos a continuación un summary, de unos datos donde sólo tenemos una variable categórica $X$, de 4 niveles 
+```{r summary}
+#Leemos los datos
+ventas<-c(27, 33, 23, 26, 28, 11, 17, 16, 14, 15, 23, 20, 18, 17, 12, 10, 15, 18, 11)
+empaque<-c(1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4)
+
+
+#Los unimos como filas con rbind() y posteriormente lo volvemos un dataframe 
+df_tabla<-data.frame(rbind(ventas,empaque), row.names = c("ventas","empaque"))
+
+#TOmamos los datos de forma vertical 
+df_anova=data.frame(t(df_tabla))
+
+#Convertimos las variables a tipo factor
+df_anova$empaque<-factor(df_anova$empaque)
+
+#Realizamos un relevel
+df_anova$empaque<-relevel(df_anova$empaque,"2")
+
+#Ajustamos nuestro modelo como usualmente hacemos
+fit_ANOVA<-lm(ventas~empaque, data = df_anova)
+
+#Y mostramos el summary
+summary(fit_ANOVA)
+```
+
+Dejando de lado la prueba F asociada a la tabla ANOVA, debemos conocer es el resto de la información de las columnas
+
+```{=tex}
+\begin{itemize}
+    \item[i.] La primera columna expresa el nombre de las variables con las que estamos trabajando, podemos ver fácilmente que están empaque1 y empaque3 y empaque4, sin embargo, podríamos tener dudas con la palabra "(Intercept)", para entenderlo debemos recordar que el intercepto, cuando estamos en una recta, es lo mismo que la ordenada al origen (cuando $x=0$), por lo que, en este caso, el intercepto es la expresión relacionada a $\beta_0$. Conclusión: En la columna 1 se encuentran los nombres de las variables
+    \item[ii.] La segunda columna nos está dando un valor por cada fila, y tiene por nombre "Estimate", por lo que podemos entender que es una estimación de algo, y dado que las variables explicativas sí pueden variar, entonces podemos entender que es la estimación de cada $\beta$ asociado a la variable cuyo nombre se encuentra en la primera columna
+    \item[iii.] La tercera columna tiene por nombre "Std. Error", por lo que, de nuevo, podemos entender que es la desvación estandar de cada $\beta$ (pues dado que es sobre lo que hacemos inferencia, es importante conocerlo)
+    \item[iv.] En la cuarta columna tenemos valores, además de llamarse "t-value", en este caso, ya habíamos hecho una pequeña mención, pues dicha columna es el valor de la variable de rechazo de la prueba t donde se comparan 
+    $$H_0:(\beta_i=0)|\beta_j\neq0\hspace{.2cm}\forall{}j\neq{}i\hspace{.25cm}vs\hspace{.25cm}(\beta_i\neq0)|\beta_j\neq0\hspace{.2cm}\forall{}j\neq{}i$$
+    O si la escribimos con palabras, la podemos escribir como $$H_0:\text{Se puede dejar el modelo como }\mathbb{E}[y]=\beta_1x_1+\cdots+\beta_{i-1}x_{i-1}+\beta_{i+1}x_{i+1}+\cdots+\beta_px_p\hspace{.25cm}vs\hspace{.25cm}$$
+    $$H_a:\text{Se debe dejar el modelo como }\mathbb{E}[y]=\beta_1x_1+\cdots+\beta_{i-1}x_{i-1}+\beta_ix_i+\beta_{i+1}x_{i+1}+\cdots+\beta_px_p$$
+  \item[v.] Finalmente tenemos una columna con un nombre un poco raro, que es "Pr(>|t|)", esta columna, lo que nos indica es el p-value de la prueba que mencionamos en el inciso anterior
+\end{itemize}
+```
+
+Y en la información mencionada, hay algo que nos puede causar duda, ¿Qué es una prueba t y cuál es su diferencia con una prueba F? O más aún, ¿qué es una prueba de hipótesis? 
+
+# Pruebas de hipótesis
+
+En pocas palabras, una prueba de hipótesis es una herramienta estadística que nos permite determinar la validez de una aseveración de los datos por encima de otra, para lo cual utilizamos información de la muestra con la que trabajamos, para el caso que tenemos delante, necesitamos su distribución (aunque hay pruebas que no requieren una distribución, llamadas no paramétricas)
+
+La forma en que se trabaja es utilizando una distribución conocida de los valores que utilizamos, y en base a ella identificar una región donde es plausible que nuestro valor caiga
+
+Sin embargo, como suele ocurrir en estadística, no estamos excentos de error, y en este caso, tenemos cuatro posibilidades
+
+\begin{itemize}
+  \item[1.] Rechazar $H_0$ aunque sea verdadera (error tipo 1)
+  \item[2.] Rechazar $H_0$ siendo falsa
+  \item[3.] Aceptar  $H_0$ siendo verdadera
+  \item[4.] Aceptar  $H_0$ aunque sea falsa (error tipo 2)
+\end{itemize}
+
+Con esto en mente, se genera la teoría de los intervalos de confianza, en la que se busca minimizar las probabilidades de cometer los errores tipo 1 y 2 ($\alpha$ y $\beta$). Para esto, se utilizan teoremas que nos pueden ayudar a buscar una prueba que nos ayude a colocar una cota sobre $\alpha$, dicha cota se llama significancia, y es de importancia, pues de esta forma podemos asegurar equivocarnos lo menos posible al rechazar $H_0$
+
+Sin embargo, esto no aplica una cota sobre $\beta$ por lo que, la probabilidad de cometer el error tipo 2 puede ser demasiado alta
+
+Dicho esto, siempre que se reporte  el resultado de una prueba de hipótesis se debe hacer de la siguiente forma:
+\begin{itemize}
+  \item Si se rechaza $H_0$: Con una significancia de $x$, se rechaza $H_0$ (Es importante reportar la probabilidad de que nos hayamos equivocado)
+  \item Si no se rechaza $H_0$: No hay suficiente evidencia para rechazar $H_0$ (Notemos que no decimos que "Aceptamos", porque el error tipo 2 puede tener probabilidad muy alta)
+\end{itemize}
+
+Dicho esto, veamos qué pruebas vamos a utilizar
+
+## Pruebas t
+
+En general, el nombre de las pruebas viene de la distribución que sigue la estadística de prueba, por lo que en este caso, la estadística de prueba de la prueba t sigue una distribución t de student, mientras que la prueba F asociada a la tabla ANOVA, y toda la familia de la prueba lineal general, tienen una distribución F de Fisher
+
+Sin embargo, la otra diferencia es su uso, pues la prueba t únicamente nos sirve para realizar alguna prueba de hipótesis sobre una combinación lineal de los coeficientes $\beta_0,\cdots,\beta_p$, es decir, de la forma
+
+$$H_0:\lambda_0\beta_0+\cdots+\lambda_p\beta_p(\leq|=|\geq)L\hspace{.25cm}vs\hspace{.25cm}H_a:\lambda_0\beta_0+\cdots+\lambda_p\beta_p(>|\neq|<)L$$
+Por lo que, en el caso de la tabla del summary, tenemos $L=0$, $\lambda_j=0$ para todo $j\neq{i}$ y evaluamos una prueba de igualdad contra diferente, sin embargo, como comentamos arriba, este es otro motivo por el que debemos leerlos como pruebas individuales, pues las pruebas t sólo pueden usardse para una única combinación lineal
+
+## Pruebas F
+
+Ahora, la prueba F asociada a la tabla ANOVA es un caso particular de la prueba lineal general. ¿Pero y qué es una prueba lineal general?
+
+La prueba lineal general es una familia de pruebas donde la estadística de prueba se distribuye F de fisher, y se realiza la siguiente prueba
+
+$$H_0:K\beta=m\hspace{.25cm}vs\hspace{.25cm}H_a:K\beta\neq{}m$$
+Donde $K$ es una matriz de $r\times{}p+1$ y cuyo rango es $r\leq{}p+1$, $\beta$ es el vector de coeficientes $\beta_0,\cdots,\beta_p$, y $m$ es un vector de $r$ constantes, es decir, se evalúan $r$ pruebas donde, dada la naturaleza de los vectores, basta con que haya suficiente evidencia en contra de una de las igualdades para que se rechace H_0
+
+Aquí podemos ver que la prueba F asociada a la tabla Anova es parte de esta, pues $m$ sería un vector de p ceros, mientras que $K$ sería la identidad de p+1, sin la primera fila 
+
+En este punto, nos puede surgir otra duda, y ¿qué hacemos cuando necesitamos dirección?
+
+## Pruebas de hipótesis simultáneas
+
+Para estos casos existen unas pruebas de hipótesis diferentes, las cuales se conocen como pruebas de hipótesis simultaneas, en las que podemos hacer pruebas de hipótesis con dirección, sin embargo, también tiene su desventaja, para entenderlo, supongamos que queremos realizar las siguientes pruebas $H_{01}$ vs $H_{a1}$ ; $H_{02}$ vs $H_{a2}$;$\cdots$;$H_{0n}$ vs $H_{an}$, todas al mismo tiempo, y todas con dirección, entonces, lo que hace la prueba simultanea es reescribirlo como
+
+$$H_0:H_{01}\cap{}H_{02}\cap\cdots\cap{}H_{0n}\hspace{.25cm}vs\hspace{.25cm}H_a:H_{a1}\cup{}H_{a2}\cup\cdots\cup{}H_{an}$$
+Es decir, se rechazaría la hipótesis nula sólo cuando alguna de las hipótesis nulas individuales se rechace, y no se rechaza cuando ninguna de las pruebas adicionales se rechaza, sin embargo, nos pude dar información de utilidad sobre cuales son las pruebas individuales que sí se rechazan y cuales no
+
+Ahora, ya que tenemos la información de las pruebas de hipótesis, podemos preguntarnos 
+
+¿Cómo es un problema tipo ANOVA?
+
+
+# El problema tipo ANOVA
+
+El problema tipo ANOVA surge cuando queremos realizar un análisis sobre la media de un conjunto de $k$ poblaciones, en las cuales, el objetivo principal suele ser si hay algún cambio en alguno de ellos, sin considerar alguna variable numérica, únicamente se busca ver el efecto que tiene la diferencia entre las poblaciones, con respecto a la media de alguna variable de interés
+
+Por ejemplo:
+```{=tex}
+\begin{itemize}
+    \item[a.] Podemos intentar verificar si un medicamento es mas efectivo que otros, o que no tomar medicamento, por lo que se tienen conjuntos de gente a los que se le ponen un tipo diferente de medicamento, o un placebo y verificar su carga viral, o la fiebre, o alguna variable numérica
+    \item[b.] Podemos intentar verificar si un plan de estudios distinto puede ser favorable para un cierto nivel educativo, para ello se puede seguir un plan de estudios distinto para un conjunto de escuelas, y se puede ver al final una calificación general de las escuelas con un examen oral o escrito
+    \item[c.] En general nos permite conocer los posibles resultados de una decisión para determinar si existe alguna diferencia 
+\end{itemize}
+```
+
+Pero, ¿esto se puede ver como un modelo de regresión?
+
+La respuesta es que sí, pues nosotros ya sabemos trabajar con variables categóricas, entonces, podemos considerar que cada una de esas $K$ poblaciones es una categoría y ajusta un modelo donde $y$ se vea explicada por la variable $X que contiene las categorías.
+
+Sin embatrgo, si bien suena fácil realizar el análisis, hay algunos detalles que debemos tomar en consideración, primero dado que únicamente queremos que la diferencia en las poblaciones influya sobre la variable $y$, entonces las poblaciones deben ser lo más homogéneas posible, por ejemplo
+
+```{=tex}
+\begin{itemize}
+    \item[a.1.] En el caso del medicamento, la edad puede ser un factor, pues los adultos mayores suelen tener defensas más bajas
+    \item[b.1] En el caso de las escuelas, podría ocurrir que se quieran comparar primarias y secundarias por igual, sin embrago, el hecho de pertenecer a niveles diferentes claramente puede influir 
+    \item[c.1] En general se busca que las poblaciones estén lo más homogéneas posibles, pues debes evitar que haya una influencia extra que pueda modificar el análisis
+\end{itemize}
+```
+
+
+Además de eso, viendo las categorías como $a_1,a_2,\cdots,a_k$, tenemos nuestro modelo como
+
+$$y_i=\beta_0+\beta_1I_{x=a_1}+\beta_2I_{x=a_2}+\cdots+\beta_{k-1}I_{x=a_{k-1}}+\varepsilon_i$$
+
+Por tanto se asume que en cada una de las categorías $y$ tiene una distribución normal, es decir, los supuestos que siempre debemos verificar aumentan y además de ver la normalidad de todo el modelo, deberíamos comprobar la normalidad de cada una de las categorías
+
+Por lo que, en este caso los supuestos son muy importantes, nuevamente por facilidad asumiremos los supuestos a continuación
+
+## Ejemplo ANOVA
+
+La Compañía Kenton Food desea comparar 4 diferentes diseños de empaque de un nuevo cereal. Veinte tiendas, con aproximadamente igual volumen de ventas y perfil de clientes, fueron seleccionadas como unidades experimentales. A cada una de las tiendas se le asignó uno de los empaques de forma aleatoria, de manera que cada empaque fuera asignado a 5 tiendas distintas. Las ventas, en número de casos, fueron observadas durante un período de estudio de 2 semanas:
+
+```{r Datos}
+#Usamos kableExtra para hacer una tabla
+df_tabla %>% 
+  #Configuraciones básicas
+  kbl(booktabs = TRUE, align = "c", col.names = 1:19) %>%
+  #Personalizamos las filas de texto
+  row_spec(0:2, color = "pink", background = "black" ) %>%
+  #Personalizamos la fila de nombres
+  row_spec(0, color = "white")
+```
+Un incendio ocurrió en una de las tiendas durante el período de estudio y dado que esto cambia las condiciones de venta con respecto a las otras tiendas se decidió eliminar la medición de esa tienda. El número de ventas de esa tienda se excluye de la tabla anterior
+
+
+### Respondiendo al problema 
+Y una vez entendido el problema, podemos comenzar con nuestro análisis, empezamos realizando un análisis descriptivo 
+
+```{r Descriptivo, fig.cap="Podemos ver la distribución de nuestros datos, la información de obtención de esta tabla se encuentra en el chunk Descriptivo, del .Rmd"}
+
+#En la función aes() colocamos los datos que queremos, en este caso, usamos fill en lugar de color, pues fill es el encargado de rellenar y color el encargado de las lienas  
+ggplot(data = df_anova, aes(x=empaque, y=ventas, fill=empaque))+
+  geom_boxplot()
+```
+Podemos ver gracias a la Figura \@ref(fig:Descriptivo) que pareciera ser que sí hay un empaque más relevante que otro, pues supera por mucho a los demás paquetes, por otro lado, podemos ver que hay dos empques que parecen ser muy similares, además de que podemos ver un valor muy grande del empaque 1, asumiremos que no es atípico, pero deberíamos preguntar al respecto, y finalmente, podemos ver que la dispersión es un poco más en los paquetes 1 y 4, pero no excesivamente.
+
+
+Además de esto, podemos pensar que el empaque 2 y el empaque 4 se parecen basante, podríamos intentar unirlos, si la información estadística nos lo permite, dicho esto, ajustaremos un modelo de regresión lineal múltiple para nuestro modelo tipo ANOVA, donde el nivel de referencia sea el empaque 2, y el summary nos dice lo siguiente:
+
+```{r fitANOVArel}
+#Mostramos el summary
+summary(fit_ANOVA)
+```
+
+Y hasta este momento ya conocemos que lo primero que debemos observar es la prueba F la cual, con una significancia de .05, nos dice que al menos una de las variables es relevante. Sabiendo esto, podemos decir que parece que nuestro modelo puede escribirse como 
+
+$$\mathbb{E}[y]=\beta_0+\beta_1I_{empaque=1}+\beta_2I_{empaque=3}+\beta_3I_{empaque=4}$$
+
+Ahora, de lo primero que podemos preguntarnos es sobre ¿Cómo son las estimaciones de cada categoría?
+
+Pues recordemos que basta con sumar $\beta_0$ y el coeficiente asociado a la categoría en cuestión, salvo para $empaque=2$, lo tendríamos como
+
+
+```{r Estimacion}
+#Guardamos el nombre de las variables
+categorias<-c("Empaque 1","Empaque 2","Empaque 3","Empaque 4")
+
+#Guardamos sus fórmulas
+Estimacion<-c("beta_0+beta_1", "beta_0","beta_0+beta_2", "beta_0+beta_3")
+
+#Guardamos la estimación puntual
+Puntual<-c(fit_ANOVA$coefficients[1]+fit_ANOVA$coefficients[2], fit_ANOVA$coefficients[1], fit_ANOVA$coefficients[1]+fit_ANOVA$coefficients[3],fit_ANOVA$coefficients[1]+fit_ANOVA$coefficients[4])
+
+#Lo ponemos todo en un Dataframe
+dato_ANOVA<-data.frame("Categoría"=categorias, "Fórmula"=Estimacion, "Estimación"=Puntual)
+
+#Y preentamos como una tabla
+dato_ANOVA%>%
+  #Configuraciones básicas
+  kbl(booktabs = TRUE, align = "c") %>%
+  #Personalizamos las filas de texto
+  row_spec(0:4, background = "green" ) %>%
+  #Personalizamos la fila de nombres
+  row_spec(0, color = "blue") %>%
+  #Personalización de columnas
+  column_spec(c(1,3), color = "red")
+```
+
+Y si bien no es una forma de probar que un empaque es mejor que otro, nos puede servir de forma descriptiva, para indicar que parece ser que el empaque 1 tiene las mayores ventas, mientras que el empaque 4 tiene las peores
+
+Ahora, algo que nos podemos preguntar es si parece que algún diseño en los paquetes tiene algún efecto, para esto, en particular necesitamos que haya al menos dos diferentes tipos de empaques que tengan ventas diferentes, dicho esto, primero enfoquémonos en la prueba de hipótesis que debemos hacer, en particular en la hipótesis nula, pues si no hubiera efecto, lo que debería ocurrir sería que: $$\mathbb{E}[y;empaque1]=\mathbb{E}[y;empaque2]=\mathbb{E}[y;empaque3]=\mathbb{E}[y;empaque4]\Rightarrow\beta_0=\beta_0+\beta_1=\beta_0+\beta_3=\beta_0+\beta_4\Rightarrow$$
+
+$$\Rightarrow\beta_1=0,\beta_2=0,\beta_3=0$$ 
+
+Notemos que si bien podría haber otras pruebas que deberíamos comprobar, como utilizaremos la prueba lineal general, entonces debemos utilizar sólo filas linealmente independientes (o lo que es lo mismo, eliminar las redundancias), así que la prueba que vamos a verificar sería:
+
+$$H_0:\beta_1=0,\beta_2=0,\beta_3=0\hspace{.25cm}vs\hspace{.25cm}H_a:\beta1\neq0\text{ ó }\beta_2\neq0\text{ ó }\beta3\neq0$$
+
+Y en este punto es cuando podemos pasar a utilizar la paquetería multcomp, la cual nos ayudará a realizar estas pruebas de hipótesis, y mostramos su funcionamiento a continuación
+
+```{r PLG, echo=TRUE}
+#Definimos nuestra matriz K para la prueba
+K=matrix(c(0,1,0,0,   #Verificamos beta1=0
+            0,0,1,0,  #Verificamos beta2=0
+            0,0,0,1), #Verificamos beta3=0
+         ncol=4, nrow=3, byrow=TRUE)
+#Definimos nuestro vector m
+m=c(0,0,0)
+
+#Finalmente realizamos nuestra prueba con la función glht (siglas de general linear hypotheses test)
+
+#Y para obtener la información, utilizamos del summary, además de esto, debemos añadir que queremos que sea una prueba F, pues ya vimos que la prueba lineal general tiene una distribución F
+summary(glht(fit_ANOVA, linfct=K, rhs=m),test=Ftest())
+```
+
+Además de esto, si nos damos cuenta, esta fue la misma prueba que se realiza con la prueba ANOVA, por lo que podíamos no realizar esta prueba :P
+
+Ahora, esto sólo nos dice que al menos dos empaques tiene ventas diferentes, sin embargo, ¿habrá algunos que sí tengan ventas iguales?
+
+Vamos a realizar las pruebas para todas las posibles igualdades entre paquetes, lo vamos a hacer por casos
+\begin{itemize}
+\item[Caso 1.] Empaques 1,3 y 4 iguales al Empaque 2 (empaque de referencia): Este caso ya lo calculamos, pues serían las mismas pruebas que contrastamos en la prueba F
+\item[Caso 2.] Empaques 3 y 4 iguales al Empaque 1: En este caso, tendríamos lo siguiente:
+
+$$E[y|Empaque3]=E[y|Empaque1]\hspace{0.25cm}\text{y}\hspace{0.25cm}E[y|Empaque4]=E[y|Empaque1]\Longrightarrow\beta_0+\beta_2=\beta_0+\beta_1\hspace{0.25cm}\text{y}\hspace{0.25cm}\beta_0+\beta_3=\beta_0+\beta_1$$
+$$\Rightarrow\beta_2=\beta_1\hspace{0.25cm}\text{y}\hspace{0.25cm}\beta_3=\beta_1\Longrightarrow\beta_2-\beta_1=0\hspace{0.25cm}\text{y}\hspace{0.25cm}\beta_3-\beta_1=0$$
+Y estas son las hipótesis nulas que utilizaremos
+\item[Caso 3.] Empaque 3 igual a empaque 4: En este caso, que es análogo al anterior, tendríamos lo siguiente:
+$$E[y|Empaque3]=E[y|Empaque4]\Longrightarrow\beta_0+\beta_2=\beta_0+\beta_3\Longrightarrow\beta_2=\beta_3\Longrightarrow\beta_2-\beta_3=0$$
+\end{itemize}
+
+Y con esto ya tenemos todas las pruebas que realizaremos, que presentamos a continuación
+```{r PS, echo=TRUE}
+#Hay formas de realizar de manera rápida, sin embargo las escribiremos completas para explicar mejor
+K=matrix(c(0,1,0,0,
+            0,0,1,0,
+            0,0,0,1, #Hasta aqí llevamos beta_1=beta_2=beta_3=0 (todos los empaques iguales al empaque de referencia)
+           0,1,-1,0,
+           0,1,0,-1, #Aquí estamos viemdo empaque1=empaque3 y empaque1=empaque4
+           0,0,1,-1 #Finalmente empaque3=empaque4
+           ), ncol=4, nrow=6, byrow=TRUE)
+#Definimos nuestro vector m
+m=c(0,0,0,0,0,0)
+
+#Finalmente realizamos nuestra prueba con la misma función glht 
+
+#Y para obtener la información,nuevamente utilizamos el summary, sin embargo, no usamos un Ftest, en su lugar eliminamos dicho parámetro, pues por defecto es una prueba simultánea
+summary(glht(fit_ANOVA, linfct=K, rhs=m))
+```
+Podemos ver la prueba nos indica, con una significancia de .05,  que parece ser que los empaques 3 y 4 podrían tener la misma media que el empaque 2, sin embargo, también nos dice que no tienen la misma media entre sí, por lo que podríamos pensar que sólo es el empaque 4, ya que dicho empaque nos lo confirma hasta en la prueba t, sin embargo, podríamos usar la prueba lienal general sobre estos dos empaques, para ver si ambos podrían tener la misma media que el empaque 2
+
+### Proponiendo el mejor empaque
+Finalmente, nosotros de los datos pudimos ver que pareciera ser que el empaque 1 es el que tiene más ventas, por lo que, por último, haremos una prueba simultanea para ver si es posible ver que el empaque 1 es mayor que todos los demás, tendríamos, nuevamente, casos
+
+\begin{itemize}
+\item[Caso 1.] Empaques 1 mejor que el empaque 2: En este caso, como lo que estamos modelando son las ventas por empaque, queremos que las ventas del empaque 1 sean mayores a las del empaque 2, y tendríamos
+$$E[y|empaque1]>E[y|empaque2]\Longrightarrow\beta_0+\beta_1>\beta_0\Longrightarrow\beta_1>0$$
+\item[Caso 2.] Empaques 1 mejor que el empaque 3: Repitiendo el proceso y argumento previamente presentado, tenemos
+$$E[y|empaque1]>E[y|empaque3]\Longrightarrow\beta_0+\beta_1>\beta_0+\beta_2\Longrightarrow\beta_1>\beta_2\Longrightarrow\beta_1-\beta_2>0$$
+\item[Caso 3.] Empaques 1 mejor que el empaque 4: Analogamente tenemos:
+$$E[y|empaque1]>E[y|empaque3]\Longrightarrow\beta_0+\beta_1>\beta_0+\beta_3\Longrightarrow\beta_1>\beta_3\Longrightarrow\beta_1-\beta_3>0$$
+\end{itemize}
+Y estas son las hipótesis alternativas con las que vamos a trabajar
+
+```{r PS2, echo=TRUE}
+#Escribimos nuestras pruebas
+K=matrix(c(0,1,0,0, #Empaque 1 > Empaque2
+           0,1,-1,0, #Empaque 1 > Empaque 3
+           0,1,0,-1), #Empaque 1 > Empaque 4
+         ncol=4, nrow=3, byrow=TRUE)
+#Definimos nuestro vector m
+m=c(0,0,0)
+
+#Finalmente realizamos nuestra prueba con la misma función glht, sin embargo, ahora le añadimos un parámetro, que es la alternativa, previamente no la habiamos utilizado, pues por defecto esta la prueba de dos colas (igual contra diferente), ahora le ponemos la alternativa, que es greater
+
+#Y para obtener la información,nuevamente utilizamos el summary
+summary(glht(fit_ANOVA, linfct=K, rhs=m, alternative="greater"))
+```
+
+Y en este caso, podemos observar que con una significancia de .05, todos los demás empaques tienen ventas menores que el empaque 1, por lo que el empaque 1 es el mejor que podemos utilizar

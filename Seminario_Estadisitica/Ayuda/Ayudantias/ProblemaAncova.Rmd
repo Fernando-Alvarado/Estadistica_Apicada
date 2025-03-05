@@ -1,0 +1,317 @@
+---
+title: "Repaso RLM Parte 4"
+subtitle: "El Problema tipo ANCOVA"
+author: "Seminario de Estadística 2024-1"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+date: "04/9/2023"
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(4.0, 3.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+```
+
+# Recordatorio
+Antes de empezar, debemos ver dos temas que nos serán de grán utilidad para el problema tipo ANCOVA
+
+Primero que todo, en su momento hablamos de las columnas que aparecen en la salida del summary, hoy iremos un poco más en profundidad, haremos uso de la prueba t que aparece en los mismos, pero cómo se utiliza 
+
+Para eso vamos a recuperar el primer ejercicio con el que trabajamos, en el cuál se nos indicaba que aparanetemente todas las variables eran no significantes, sin embargo, sabemos que esto no necesariamente es así, vamos a empezar observando nuestros datos 
+
+```{r CargarDAtos}
+# En esta ocasión vamos a realizar la carga de datos con la función read.table(), la cuál tiene algunas diferencias con respecto a la función read.csv(), la cual tiene por defecto los argumentos sep="," y header=TRUE, que nos dice que la separación es por comas, y que la primera fila es de nombres, en el caso de read.table, tiene sep = cualquier tipo de espacio y header=FALSE, pero se pueden modificar
+df_1<- read.table("ejemplo1RLM.csv", sep = ",", header = TRUE)
+
+#Realizamos nuestro ajuste y presentamos nuestro summary
+fit_1<-lm(y~X1+X2, data=df_1)
+
+summary(fit_1)
+
+```
+Primero debemos recordar que la prueba F asociada a la tabla ANOVA nos dice que $X1$ o $X2$ es relevante, con significancia de .05
+Lo que haremos a continuación es reducir el modelo, removiendo las variables (incluyendo el intercepto) de una en una para ver qué sucede
+
+## Reducción del modelo mediante pruebas de hipótesis
+
+Como recordaremos, en el modelo que tenemos arriba hicimos pruebas eliminando variables del modelo, de donde obteníamos siempre que la variable $X2$ era siempre significativa, de esto, nos podríamos preguntar si podemos, por ejemplo, quedarnos únicamente con la variable $X2$ en el modelo, para esto vamos a identificar la forma de reducir los coeficientes del modelo
+
+Comencemos viendo el summary del modelo con sólo una variable 
+
+```{r summaryredred}
+#AJustamos y presentamos
+fit_1_redred<- lm(y~-1+X2, data = df_1)
+summary(fit_1_redred)
+```
+Teniendo este modelo, podemos ver que la prueba F y la prueba t coinciden, y además podemos ver que $X2$ sigue siendo relevante, y tenemos un modelo aún más sencillo que nos deja mucha simplicidad en la interpretación
+
+Como podemos ver, este modelo sería mucho más resumido, además de simplificar todo a conocer a una sóla variable, lo cual sería mucho más eficiente para la inferencia, sin embargo, no podemos sólo decidir quedarnos con este modelo en este momento, para eso, deberemos utilizar una prueba de hipótesis, que nos ayude a determinar si podemos eliminar las otras dos variables, y quedarnos sólo con $X2$. Para esti vamos a utilizar una prueba lineal general que nos ayude a verificar si ambos valores son 0, es decir
+
+$$H_0:\beta_0=0\wedge\beta_1=0\hspace{.5cm}vs\hspace{.5cm}H_a:\beta_0\neq0\vee\beta_1\neq0$$
+O también lo podemos ver como comentamos en la primera ayudantía con las pruebas $t$, queremos verificar si alguno de los coeficientes aporta información, o si ninguno aporta más información de la que aporta $X2$
+
+
+```{r prueba, echo=TRUE}
+#Definimos nuestra matriz K para la prueba
+K=matrix(c(1,0,0,
+           0,1,0),
+         ncol=3, nrow=2, byrow=TRUE)
+#Definimos nuestro vector m
+m=c(0,0)
+summary(glht(fit_1, linfct=K, rhs=m),test=Ftest())
+```
+Como no se rechaza $H_0$, con una significancia de .05, podemos decir que no hay evidencia en contra de utilizar el modelo donde sólo se utiliza $X2$
+
+Y con esto, tenemos un extra que nos permite reducir nuestro modelo, claro que habrá ocasiones en que la prueba se rechace, implicando que alguna variable debe quedarse en el modelo
+
+Por otro lado, también cabe notar que esto podría dificultarse cuando queremos eliminar una gran cantidad de variables, imaginemos 10, o 20, podría ser cansado, al igual que podría acarrear errores, por lo que veremos una función que nos ahorrará el trabajo de este proceso
+
+Sin embargo, hay algo más que hay que verificar para la clase de hoy, los intervalos de confianza
+
+# Intervalos de confianza
+
+Los intervalos de confianza nos sirven para obtener una representación más amplia de dónde podría encontrarse un estimador, para esto se utiliza el proceso de la cantidad pivotal, para poder encontrar intervalos de confianza (aunque no nos metermos mucho en eso)
+
+Para eso, los intervalos de confianza, requieren de un valor que, al restarse de 1, nos indique el porcentaje de confianza que tenemos. Esto es importante, pues la confianza será, en este caso, la frecuencia con la que caerá el verdadero valor de la muestra en nuestro intervalo (por eso también hay que tener cuidado, pues nada garantiza que caiga justo donde decimos)
+
+Sin embargo, durante el análisis de un problema tipo ANOVA (que ya conocímos) o ANCOVA, podría ser más sencillo para quien nos pregunta observar un intervalo, y gracias a él determinar si algún grupo es mejor que otro
+
+Sin embargo, dado que los intervalos se crean de una forma individual, llegamos al mismo problema que teníamos con las pruebas de hipótesis. Esto porque, como las pruebas de hipótesis, el resultado será independiente del resto de variables, así que tendríamos que tener una estrategía diferente, para lo cuál se crearon los intervalos de confianza simultáneos 
+
+
+## Intervalos de confianza simultáneos 
+En general, los intervalos de confianza simultáneos funcionan de manera similar a las pruebas de hipótesis simultáneas, en este caso, se busca que la probabilidad de que cada uno de los estimadores se encuentre en un intervalo particular sea igual a $1-\alpha$, con $1-\alpha$ el nivel de confianza.
+
+Dicho de una forma más sencilla, se usa información en conjunto, y por consiguiente sí se pueden leer en conjunto
+
+Dicho esto, podemos conocer el problema tipo ANCOVA
+
+# Problema tipo ANCOVA
+
+El problema tipo ANCOVA es muy similar al problema tipo ANOVA, como recordaremos, consiste en un problema en el que nos interesa contrastar poblaciones que sean similares en todos los aspectos, salvo por el hecho de pertenecer a una de las mencionadas poblaciones
+
+En el caso del problema tipo ANCOVA tenemos muchas cosas parecidas, sin embargo, en el problema tipo ANCOVA los investigadores o las personas interesadas en el análisis creen que podría existir una variable cuyo efecto en las poblaciones haga que la media cambie, aún dentro de la misma población
+
+Algunos ejemplos de variables que podrían afectar, por ejemplo en los casos que comentamos en el problema tipo ANOVA serían 
+
+```{=tex}
+\begin{itemize}
+  \item[i.] Cuando tenemos el caso de comparar medicamentos, la edad podría ser un factor para que haya cambios dentro de una misma población
+  \item[ii.] Cuando estamos comparando planes de estudio entre escuelas del mismo nivel, el presupuesto que podría tener cada escuela puede ser un factor para que haya una diferencia 
+  \item[iii.] En general, el efecto de cualquier variable numérica se puede considerar para este problema, sin embargo, también puede existir una interacción entre variables categóricas, como la interacción de un sexo con un medicamento 
+\end{itemize}
+```
+
+Dicho todo esto, en general debemos aplicar las mismas reglas que aplicaríamos sobre el problema tipo ANOVA, y que la única variación sea la diferencia en las vraibales que remos estudiar, tanto la numérica como la categórica
+
+Una diferencia es que la prueba de los supuestos se simplifica, pues ya no se debe verificar la normalidad para cada categoría
+
+De ahí en fuera, el proceso suele hacerse igual, entendido eso, procedamos con el ejemplo
+
+
+## Ejemplo 1
+Se desea analizar la efectividad de tres tratamientos (A, B y C) para tratar la depresión.
+
+Un análisis exploratorio de los datos sugiere que la edad de los individuos influye en el comportamiento de la efectividad de cada tratamiento
+
+Ya que nos dijeron que la edad es un factor influyente sobre la efectividad del tratamiento, por lo que podemos verlo como un problema tipo ANCOVA
+
+Empezamos con una observación de los datos 
+
+```{r Grafica}
+#Cargamos los datos y generamos una gráfica
+df_ancova<-read.table("datos.csv", sep = ",", header = TRUE)
+
+#Pasamos nuestra variable a tipo factor
+df_ancova$Tratamiento<-factor(df_ancova$Tratamiento)
+
+#Presentamos nuestra gráfica
+ggplot(data = df_ancova, aes(x = x1, y = y, color = Tratamiento)) +
+  geom_point()
+```
+
+En general, podemos ver que todos los tratamientos parecen mejorar con la edad, por otro lado, también podemos observar que en la mayoría de las edades, la efectividad del tratamiento A parece ser la mejor, vamos a ver si existe evidencia para argumentar al respecto, vamos a realizar nuestro ajuste para poder obtener información  
+
+```{r ajuste, echo=TRUE}
+#Para mostrar interacciones utilizamos un * que significa todas las interaciones entre estas dos variables
+
+fit_ancova<-lm(y~x1*Tratamiento, data = df_ancova)
+
+#Y generamos el summary
+summary(fit_ancova)
+```
+Podemos ver que el nivel de referencia es el nivel A, además de esto, que alguna de las variables es relevante, con una significancia de .05, sin embargo, es un poco dificil entender lo que significan los dos puntos que se pueden presentar en algunas variables, pues en general, ese es el símbolo de interacción, se interpreta como un producto entre ambas variables, en este caso, es el producto de la variable $x1$ con la dictómica de cada categoría, dicho esto, el modelo se ve de la siguiente forma
+
+$$\mathbb{E}[y]=\beta_0+\beta_1x_1+\beta_2\mathbb{I}_{Trat=B}+\beta_3\mathbb{I}_{Trat=C}+\beta_4x_1\mathbb{I}_{Trat=B}+\beta_5x_1\mathbb{I}_{Trat=C}$$
+Aunque puede parecer complicado, ya sabemos que las categorías son sencillas, y tenemos que:
+
+Para el Tratamiento A
+$$\mathbb{E}[y;Tratamiento=A]=\beta_0+\beta_1x_1$$
+Para el Tratamiento B
+$$\mathbb{E}[y;Tratamiento=B]=\beta_0+\beta_1x_1+\beta_2+\beta_4x_1=(\beta_0+\beta_2)+x_1(\beta_1+\beta_4)$$
+Para el Tratamiento C
+$$\mathbb{E}[y;Tratamiento=C]=\beta_0+\beta_1x_1+\beta_3+\beta_5x_1=(\beta_0+\beta_3)+x_1(\beta_1+\beta_5)$$
+Podemos ver que, a diferencia de otros problemas, las rectas que tenemos no necesariamente son paralelas, pues la pendiente de $x_1$ puede variar en cada una de las categorías ($\beta_4$ y $\beta_5$ no necesariamente son 0)
+
+Dado esto, algo que se suele buscar es ver si las betas asociadas a las interacciones son 0, para garantizar que las rectas sean paralelas
+
+Dicho esto, realizamos una prueba de hipótesis para verificar si los betas relacionados con las interacciones son 0, dicho de otra forma, si el efecto de la variable $x_1$ es la misma para todos los tratamientos, o lo que es lo mismo, buscamos eliminar $\beta4$ y $\beta5$, es decir, haremos la siguiente prueba:
+
+$$H_0:\beta_4=0,\beta_5=0\hspace{.25cm}vs\hspace{.25cm}H_a:\beta_4\neq0\hspace{.25cm}\text{ó}\hspace{.25cm}\beta_5\neq0$$
+
+```{r prueba_1}
+#Realizamos nuestra prueba
+K=matrix(c(0,0,0,0,1,0,
+           0,0,0,0,0,1), ncol=6, nrow=2, byrow=TRUE)
+
+m=c(0,0)
+
+summary(glht(fit_ancova, linfct=K, rhs=m),test=Ftest())
+```
+Podemos ver que se rechazo la prueba, así que alguno de los dos no es 0, con significancia .05, sin embargo, podemos intentar hacerlo de otra forma, con una prueba simultánea.
+
+Como ya hemos comentado en otras ocasiones, además de verificar las mismas pruebas que antes, también se verificará si $\beta_4$ y $\beta_5$ también son iguales, y tendríamos:
+
+$$H_0:\beta_4=0,\beta_5=0,\beta_4-\beta_5=0\hspace{.25cm}vs\hspace{.25cm}H_a:\beta_4\neq0\hspace{.25cm}\text{ó}\hspace{.25cm}\beta_5\neq0\hspace{.25cm}\text{ó}\hspace{.25cm}\beta_4-\beta_5\neq0$$
+
+```{r prueba_2}
+#Realizamos nuestra prueba
+K=matrix(c(0,0,0,0,1,0,
+           0,0,0,0,0,1,
+           0,0,0,0,-1,1), ncol=6, nrow=3, byrow=TRUE)
+
+m=c(0,0,0)
+
+summary(glht(fit_ancova, linfct=K, rhs=m))
+```
+Podemos ver que parece ser que el tratamiento A y B interactúan de la misma forma con la edad, y podemos tener un modelo más pequeño, vamos a ajustarlo y a ver el summary
+
+```{r ajustered, echo=TRUE}
+#Para sólo mostrar una interacción usamos los dos puntos, como mencionados, y escribimos la categoría como un string
+
+fit_ancova_red<-lm(y~x1+Tratamiento+x1:I(Tratamiento=="C"), data = df_ancova)
+
+#Y generamos el summary
+summary(fit_ancova_red)
+```
+
+Por lo que hemos visto, ya no tendríamos más variables por reducir, por lo que vamos a trabajar con estos valores
+
+```{r Estimacion}
+#Generemos nuestra tabla de datos
+categorias<-c("Tratamiento A","Tratamiento B","Tratamiento C")
+
+Estimacion<-c("beta_0+beta_1x_1", "beta_0+beta_2+beta_1x_1","beta_0+beta_3+beta_1x_1+beta_4x_1")
+
+#Guardamos la estimación puntual
+Puntual<-c(paste(round(fit_ancova_red$coefficients[1],2),"+",round(fit_ancova_red$coefficients[2],2),"x1"),
+paste(round(fit_ancova_red$coefficients[1]+fit_ancova_red$coefficients[3],2),"+",round(fit_ancova_red$coefficients[2],2),"x1"), 
+paste(round(fit_ancova_red$coefficients[1]+fit_ancova_red$coefficients[4],2),"+",round(fit_ancova_red$coefficients[5]+fit_ancova_red$coefficients[2],2),"x1"))
+
+#Lo ponemos todo en un Dataframe
+dato_ancova<-data.frame("Categoría"=categorias, "Fórmula"=Estimacion, "Estimación"=Puntual)
+
+#Y preentamos como una tabla
+dato_ancova%>%
+  #Configuraciones básicas
+  kbl(booktabs = TRUE, align = "c") %>%
+  #Personalizamos las filas de texto
+  row_spec(0:3, background = "LightCyan" ) %>%
+  #Personalizamos la fila de nombres
+  row_spec(0, color = "DarkKhaki") %>%
+  #Personalización de columnas
+  column_spec(c(1,3), color = "Gray") %>%
+  column_spec(2, color = "Coral")
+```
+
+Y podríamos preguntarnos, ¿cómo sabemos cuál es el mejor? 
+
+Pues en general, podemos ver que dada la presencia de la edad, en cada valor diferente de $x1$ tendríamos una prueba diferente, pues su efecto es diferente en al menos dos niveles
+
+Claro que podríamos compara el Tratamiento A y el B, pues son lineas paralelas, y el efecto de la variable X1 al comparar se cancelaría, y sólo nos importaría $\beta_2$
+
+Sin embargo, con el Tratamiento C no tenemos ese lujo, por lo que necesitamos utilizar otra alternativa, en este caso, utilizaremos intervalos de confianza simultáneos, que se realizan de la siguiente forma
+
+Empezamos con una revisión de los datos, para conocer la variable edad
+
+```{r summarydf}
+summary(df_ancova)
+```
+
+Tenemos que la edad es desde 19 hasta 67, además, usaremos la fórmula que ya tenemos en la tabla azul de arriba, para generar una matriz para cada categoría, usando su fórmula, además, utilizaremos una confianza del 90% para una mejor observación
+
+Con las fórmulas que tenemos, lo que haremos será realizar un intervalo de confianza para cada uno de los años y cada una de las categorías
+
+```{r ICS, echo=TRUE, fig.dim=c(8,3.5)}
+# Definimos nuestra secuencia
+anios<-seq(from = 19, to = 67, by = 1)
+
+#Definimos una matriz para cada categoría
+#Usamos cbind para unir columnas de 1, de 0 y la secuencia de años
+KA <- cbind(1, anios, 0, 0, 0) #En este caso trabajamos con beta0+beta1*años
+
+KB <- cbind(1, anios, 1, 0, 0) #En este caso trabajamos con beta0+beta1*años+beta2
+
+KC <- cbind(1, anios, 0, 1, anios) #En este último caso trabajamos con
+#beta0+beta1*años+beta3+beta4*años
+
+
+#Juntamos las matrices por renglón 
+#Cada renglón representa una combinación a la que calcular su intervalo
+K<-rbind(KA, KB, KC)
+
+#Obtenemos primero una estimación puntual 
+Est <- glht(fit_ancova_red, linfct = K)
+
+#Y a la estimación le obtenemos un intervalo de confianza
+CI <- confint(Est, level = 0.90)
+
+#Unimos los intervalos de confianza con la información que tenemos, para poder juntarlo a posteriori
+conf<-data.frame(cbind(CI$confint,rep(anios, 3)))
+conf<-cbind(conf, c(rep(levels(df_ancova$Tratamiento)[1],49),rep(levels(df_ancova$Tratamiento)[2],49), rep(levels(df_ancova$Tratamiento)[3],49)))
+
+
+#Ajustamos los nombres de las columnas para después 
+colnames(conf)<-c("est", "lwr", "upr", "x1", "Tratamiento")
+
+#Finalmente lo graficamos, y tenemos 
+ggplot(data = df_ancova, aes(x = x1, y = y, color = Tratamiento))+
+  geom_point()+
+  geom_line(data = conf, aes(x=x1, y=est, group=Tratamiento), size = 1.3) +
+  geom_line(data = conf, aes(x=x1, y=lwr, group=Tratamiento), linetype= 2, size = 1.2)+
+  geom_line(data = conf, aes(x=x1, y=upr, group=Tratamiento), linetype=2 ,size = 1.2)+
+   geom_vline(xintercept=50, linetype="dotted", color="black")
+```
+
+En este caso, podemos ver que nuestra gráfica se ve con los datos muy juntos, sin embargo, podemos ver que hasta la edad igual a 50, tenemos que el tratamiento A es el mejor con una confianza del 90%, aunque de ahí en adelante, todos los tratamientos parecen tener el mismo comportamiento hasta la edad 60
+
+
+

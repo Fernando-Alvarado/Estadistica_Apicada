@@ -1,0 +1,523 @@
+---
+title: "Repaso RLM  Parte 5"
+subtitle: "Verificación de supuestos"
+author: "Seminario de Estadística 2025-2"
+date: "2025-02-26"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+header-includes:
+   - \usepackage[spanish]{babel}
+   - \usepackage[utf8]{inputenc}
+   - \decimalpoint
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+#Elegimos nuestra carpeta
+setwd("C:/Users/bortega/OneDrive - MLG.COM.MX/Escritorio/Seminario 2025-2/Ayudantias")
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+#	fig.dim = c(7.0, 2.5),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)
+```
+
+```{r Carga_datos, include=FALSE}
+#Datos para ejemplos
+load(url("https://www.dropbox.com/s/fyobx9uswy3qgp3/dataWorld_q.rda?dl=1"))
+datos_ejemplo <- dataWorld_q[dataWorld_q$quinq == "2000-2004",]
+
+
+
+datos_ejemplo2 <- read.csv("VerSup.csv")
+str(datos_ejemplo2) 
+summary(datos_ejemplo2) 
+
+
+# Convertimos a tipo factor/categorias las variables necesarias
+datos_ejemplo2$X1 <- factor(datos_ejemplo2$X1)
+datos_ejemplo2$X2 <- factor(datos_ejemplo2$X2)
+
+
+#Observamos los niveles para las variables categoricas
+levels(datos_ejemplo2$X1)
+levels(datos_ejemplo2$X2)
+
+```
+# Verificación de supuestos.
+A lo largo de este repaso hemos comentado cosas importantes, teniendo como base un modelo de regresion lineal multiple pero, en todos los ejemplos nos hemos saltado una parte importante, pues una vez ajustado el modelo es necesario elaborar una $\textbf{verificacion~de~supuestos}$, pero, ¿Qué es la verificación de supuestos?. 
+
+En primer lugar tenemos que recordar cuales son los supuestos que se necesitan verificar.
+```{=tex}
+\begin{itemize}
+  \item[i.] Linealidad.
+  \item[ii.] Homocedasticidad.
+  \item[iii.] Normalidad.
+  \item[iv.] Indepenencia de los errores-observaciones.
+\end{itemize}
+```
+Para todo modelo es importante verificar dichos supuestos pues si alguno se rechaza se podrían presentar problemas potenciales, en particular, un modelo que no cumple el supuesto de homocedasticidad tiende a ser ineficiente y generar estimaciones sesgadas por otra parte un modelo que no cumple el supuesto de normalidad puede presentar problemas en la generación de intervalos de confianza y en la realización de pruebas de hipótesis.
+
+
+# Linealidad.
+El primer supuesto que debemos verificar es el supuesto de $\textbf{linealidad}$. Una de las herraminetas que nos ayudara en la verificación de este supuesto es un diagrama de dispersión de $\hat{y}$ vs ${e}$ . En este se espera lo siguiente:
+
+1. $\textbf{No}$ encontrar un patron lineal entre los residuales $\textit{e}$ y el valor estimado $\hat{y}$, 
+
+2. Una nube de puntos sobre el eje Y  centrada en 0 y simetrica sobre cada uno de los valores en el eje X ($\hat{y}$)
+
+
+
+Es decir, en este supuesto se busca verificar que en efecto la variable respuesta se ve como combinacion lineal de las $\beta^{'s}$.
+
+$$E[y|(x_1,x_2,..., x_p)] = \beta_0 + \beta_1x_i + \beta_2x_2 +...+ \beta_px_p $$
+
+
+
+```{r modelo, echo=TRUE}
+
+modelo1 <- lm(X4~X3, 
+         data = datos_ejemplo2)
+modelo2 <- lm(childMort~incomePp, 
+         data = datos_ejemplo)
+```
+Ejemplos:
+```{r graficas, echo=TRUE}
+par(mfrow=c(1,2))
+plot(modelo1, 1, caption = "Modelo 1")
+plot(modelo2, 1, caption = "Modelo 2")
+```
+Acorde a lo comentado el Modelo 1 parece comportarse mejor en respecto del supuesto de linealidad, pues el Modelo 2 tiene una evidente tendencia al observar el grafico. En este caso solo tenemos una variable por modelo por lo que podriamos verificar este supuesto comparando las graficas que surgen de graficar las variables respuesta con sus respectivas variables explicativas, $X_{M1}$ y $X_{M2}$ respectivamente.
+
+```{r graficas2, include= T}
+# Aqui podemos ver que la variable explicativa en el modelo 1 pareciera comportarse de manera lineal muy dispera pero lineal
+#Por otro lado la variable explicativa utilizada en el Modelo 2 no parece tener una relación lineal con la variable respuesta en absoluto.
+
+par(mfrow=c(1,2))
+plot(datos_ejemplo2$X3,datos_ejemplo2$X4, main  = "Modelo 1", xlab = "x", ylab = "y")
+plot(datos_ejemplo$incomePp,datos_ejemplo$childMort, main = "Modelo 2", xlab = "x", ylab = "y")
+```
+
+Aqui podemos ver que la variable explicativa en el Modelo 1 pareciera comportarse de manera lineal y muy dispera, pero lineal. Por otro lado la variable explicativa utilizada en el Modelo 2 no parece tener una relación lineal con la variable respuesta en absoluto.
+
+En el mejor de los casos se busca que dicho grafico $\textbf{no}$ presente algun tipo de tendencia en las observaciones, es decir, que los puntos observados se encuentren dispersos sobre el eje cero.
+
+Otra herramienta que nos ayudará con este supuesto es la paqueteria car en R, siendo más especificos la función residualplots(). Esta herramienta ademas de incluirnos un diagrama de dispersión entre cada una de las variables independientes y los residuales, nos agrega prueba de hipotesis. Las pruebas individuales nos contrastan de manera conclusiva: 
+
+$$ H_0: \text{La relación entre la variable independiente y la variable de respuesta es lineal}.~~vs~~ H_a: \text{Existe una relación no lineal}$$
+
+La prueba Tukey evalua la linealidad de manera global, esta tiene el siguiente contraste (de manera conclusiva):
+
+$$ H_0: \text{El modelo en conjunto cumple con el supuesto de linealidad}.~~vs~~ H_a: \text{Existe al menos una relación no lineal entre una variable independiente y la variable de respuesta}$$
+
+
+```{r car, echo=TRUE}
+library(car)
+residualPlots(modelo1)
+```
+
+Ahora, ¿Qué pasa si este supuesto no se cumple? Suponiendo que tenemos un modelo con más de una variable independiente, tendremos que realizar un análisis más profundo en cada una de ellas y ver cuales son aquellas o aquella que esta causando problemas. Una vez identificadas las variables, podemos realizar transformaciones tipo Box-Tidwell para hacer que nuestro supuesto de linealidad se cumpla. 
+
+
+# Homocedasticidad.
+
+El supuesto de homocedasticidad busca que la varianza de los errores sea contante, es decir.
+
+$$ Var(\epsilon_i)=\sigma^2~,~ _{~~i ~=~ 1,2,..., n}$$
+Este supuesto es equivalente a.
+
+$$Var(y_i)=\sigma^2~,~ _{~~i ~=~ 1,2,..., n}$$
+Una forma general de verificar el supuesto de homocedasticidad surge al utilizar una versión modificada de los residuales $e_i$, recordar que estos se definen de la siguiente manera.
+
+$$ e_i~=~ y_i - \hat{y}_i, ~~ i=1,2,..., n$$
+Esta versión de los residuales no tiene varianza constante, a raíz de esto se opta por usar $\textbf{residuales estandarizados}$, esta versión se define de la siguiente manera.
+
+
+$$ e_{is} = \frac{e_i}{\sqrt{\hat{\sigma}^2(1-h_i)}}~,~ i = 1,2,...,n$$
+donde 
+
+$$h_i = \frac{1}{n} + \frac{(x_i - \hat{X})^2}{SS_x}$$
+
+Para la verificación de este supuesto se debe realizar lo siguiente.
+
+```{=tex}
+\begin{itemize}
+  \item[i.] Realizar un diagrama de dispersion de los valores $x$ vs $e_{is}$ o bien $\hat{y}$ vs $e_{is}$.
+    \begin{itemize}
+      \item[-] Se debe observar una nube de puntos sobre el eje $e_{s}$ centrada en 0.
+      \item[-] Dicha nube de puntos debe debe alcanzar la misma longitud sobre y debajo del eje x.
+    \end{itemize}
+  \item[ii.] Realizar la prueba ncvTest (Non\-Constant Error Variance) función dentro del paquete car.
+  \item[iii.] Realizar la prueba bptest (Breusch\-Pagan test) función dentro del paquete lmtest.
+\end{itemize}
+```
+
+```{r graficas1, echo=TRUE}
+par(mfrow=c(1,2))
+plot(modelo1, 3, main = "Modelo 1")
+plot(modelo2, 3, main = "Modelo 2")
+```
+¿Qué sucede si hay evidencia en contra de la homocedasticidad? Uno de los caminos más comunes es realizar una transformación a la variable dependiente (${y}$), pero también se puede ajustar un modelo de regresión ponderada. Este ultimo modelo se comentará más adelante en el curso. 
+
+# Normalidad
+
+Este supuesto verifica que en efecto.
+
+$$\epsilon_i \sim N(0,\sigma^2)~,~~i=1,2,...,n$$
+
+Este supuesto permite obtener varios de los resultados teóricos desarrollados, por ejemplo, los asociados al cálculo de los intervalos de confianza y pruebas de hipótesis.
+
+Para verificar este supuesto tenemos varias opciones de en las que se contrastan las siguientes hipotesis.
+
+$$ H_0:\epsilon_i \sim N(0,\sigma^2)~~vs~~ H_a: \epsilon_i \nsim N(0,\sigma^2), ~~ i=1,2,...,n$$
+
+El listado de pruebas posibles es el siguiente.
+
+```{=tex}
+\begin{itemize}
+  \item[-] Visualizar el Q-Q plot, se espera que los puntos caigan sobre la diagonal (cuantiles muestrales de los errores son similares a los cuantiles teóricos de la distribución normal).
+  \item[-] Realizar la prueba shapiro.test (Shapiro Wilk) función del paquete stats.
+  \item[-] Realizar la prueba lillie.test (Kolmogorov-Smirnov) función del paquete nortest.
+  \item[-] Realizar la prueba jb.norm.test (Jarque-Bera) funcion del paquete nortest.
+\end{itemize}
+```
+
+```{r normalidad}
+par(mfrow=c(1,2))
+plot(modelo1,2,main = "Modelo 1")
+plot(modelo2,2,main = "Modelo 2") 
+```
+
+¿Qué ocurre cuando no se verifica el supuesto de normalidad? Se recomienda primero solucionar los problemas de linealidad y homocedasticidad, pues estos ayudan a argumentar a favor del supuesto de normalidad. 
+
+# Independencia (Covarianza cero)
+
+Este supuesto se refiere a.
+
+$$Cov(\epsilon_i,\epsilon_j)=0~,~~ \forall~i\neq j~,~~i,j:1,2,...,n$$
+En caso de normalidad $\epsilon_1, \epsilon_2,..., \epsilon_n$ son v.a. independientes. Para este caso se contrastan las siguientes hipotesis.
+
+$$H_0: Los~errores~son~independientes.~~vs~~H_a: Los~errores~no~son~independientes.$$
+Para contrastar las hipotesis tenemos las siguientes pruebas.
+
+```{=tex}
+\begin{itemize}
+  \item[i.] Realizar la prueba dwtest (Durbin-Watson) función del paquete lmtest.
+  \item[ii.] Realizar la prueba bgtest (Breusch-Godfrey) función del paquete lmtest.
+\end{itemize}
+```
+# Outliers.
+
+Además de verificar los supuestos debemos prestar atención a los datos atípicos (outliers), es importante saber que pasa con ellos pues en la mayoría de ocasiones se generan por errores de captura al momento de recabar la información, por otro lado, podría tratarse de una observación muy particular. En caso de tratarse de un error de captura podríamos eliminar dicha observación evitando así un sesgo en el modelo.
+
+En muchas ocasiones se puede intuir el tipo de valor atípico desde un diagrama de dispersión, si buscamos una manera más certera para definir el tipo observación que tenemos podemos hacer uso de la $\textbf{distancia de Cook}$ esta métrica cuantifica que tanto influye la observación en cuestión en la generación de $\beta$, es decir, a valores altos la observación afecta mucho al modelo.
+
+```{r cook}
+plot(modelo1,4, main  = "Modelo 1")
+```
+
+
+# Ejemplo verificación de supuestos.
+
+Para ejemplificar lo que hemos visto en esta sesión ajustaremos un modelo de regresión con los datos del archivo "VerSup.csv". Ajustaremos el modelo con los datos crudos, es decir, sin alguna transformación sobre las variables y tomando todas en cuenta.
+
+Análisis exploratorio de los datos
+
+```{r datos_1, echo=TRUE}
+str(datos_ejemplo2)
+```
+Tenemos la variable dependiente ${y}$ como tipo numérica, 4 variables independientes numéricas y dos variables independientes categóricas. Las variables categóricas ya se trabajan como variables tipo factor, para la variable X1 el nivel de referencia es "A1" mientras que para la variable X2 el nievel de referencia es "B1".
+
+```{r summary, echo=TRUE}
+summary(datos_ejemplo2)
+```
+
+Podemos observar que no hay datos fuera de los común. (Esto depende totalmente de el contexto de los datos)
+
+```{r ajuste, echo=TRUE}
+fit_crudo <- lm(y ~ ., #efectos principales
+          data = datos_ejemplo2)
+summary(fit_crudo)
+```
+Observamos que el p-value asociado a la prueba F es menor a .05, por lo que al menos una de nuestras variables independependientes nos aporta información al modelo. Hecho esto, procedemos a verificar el cumplimiento de los supuestos en nuestro modelo. 
+
+# Linealidad
+
+```{r fit_l, echo=TRUE}
+plot(fit_crudo,1)
+```
+Respecto a lo mencionado podemos decir que nuestro modelo no cumple el supuesto de linealidad, parece presentar tendencia al revisar el grafico.
+
+# Normalidad.
+
+```{r f_normalidad, echo=TRUE}
+plot(fit_crudo,2)
+```
+El grafico anterior permite tener una idea de los posibles resultado al realizar las pruebas siguientes. Recordar que para esta prueba es necesario usar los $\textbf{residuales estandarizados}$
+
+```{r pruebasn, echo=TRUE}
+std_resid = broom::augment(fit_crudo)$.std.resid 
+
+shapiro.test(std_resid)
+
+nortest::lillie.test(std_resid)
+
+tseries::jarque.bera.test(std_resid)
+```
+
+Al realizar las pruebas podmeos observar que se rechaza la hipotesis nula en las tres pruebas, por lo que, el modelo no cumple el supuesto de normalidad.
+
+# Homocedasticidad.
+
+```{r homo_fc, echo=TRUE}
+plot(fit_crudo,3)
+```
+De nuevo el grafico solo nos permite obtener una visualización para inferir posibles resultados. Debemos realizar las siguientes pruebas.
+
+```{r homo_fc2, echo=TRUE}
+
+lmtest::bptest(fit_crudo)
+car::ncvTest(fit_crudo)
+
+# Pueden probar varianza constante para sólo una variable de esta forma
+# car::ncvTest(fit_crudo, ~X1)
+```
+De nuevo ambas pruebas se rechazan, es decir, no hay varianza constante.
+
+# Independencia.
+
+Verificar la independencia de los errores.
+
+```{r ind,echo=TRUE}
+
+# H0 : errores independientes
+library(lmtest)
+lmtest::dwtest(fit_crudo) ## prueba Durbin-Watson
+lmtest::bgtest(fit_crudo) ##prueba Breusch-Godfrey
+```
+# Aleatoriedad  
+
+Se busca que las observaciones provengan de una muestra aleatoria
+$$H_0: Si~hay~aleatoriedad.~~vs~~H_a: No~hay~aleatoreidad.$$
+
+```{r al,echo=TRUE}
+#Prueba de rachas 
+datosfit <- broom::augment(fit_crudo)
+library(lawstat)
+lawstat::runs.test(datosfit$.std.resid, plot.it = FALSE) 
+
+library(randtests)
+randtests::runs.test(datosfit$.std.resid)
+
+
+```
+
+# Outliers
+
+```{r out, echo=TRUE}
+plot(fit_crudo, 5)
+```
+# Transformaciones Box-cox
+
+Como no se cumple la homocedasticidad, vamos a intentar hacer una transformación
+Box-Cox a $\textbf{y}$ por ejemplo (no necesariamente se tiene que iniciar por aquí):
+
+```{r pwtr, echo=TRUE}
+powerTransform(fit_crudo)
+```
+Nos sugiere $\lambda = 0$, es decir, aplicar $log()$ a $Y$.
+
+```{r bc,echo=TRUE}
+fit_bxcx = lm(log(y) ~ ., data=datos_ejemplo2)
+```
+
+Veamos rápidamente qué sucede con los supuestos de este nuevo modelo.
+
+```{r}
+plot(fit_bxcx, 1)
+plot(fit_bxcx, 2)
+plot(fit_bxcx, 3)
+plot(fit_bxcx, 5)
+```
+
+Pareciera que mejoró bastante pero no lo suficiente. Veamos los p-values de sus
+pruebas:
+
+### Linealidad
+
+```{r graficasss, echo=TRUE}
+pruebas_linealidad = car::residualPlots(fit_bxcx)
+
+
+#Si solo queremos observar una variable
+#residualPlots(fit_bxcx, terms = ~ X6, fitted= FALSE)
+
+# Forma de acceder a los p-values directamente
+#pruebas_linealidad[1, 2] #X3
+#pruebas_linealidad[2, 2] #X4
+#pruebas_linealidad[3, 2] #X5
+#pruebas_linealidad[4, 2] #X6
+
+
+```
+
+Parece ser que en cuanto a linealidad sólo mete ruido `X6`
+
+### Normalidad
+
+```{r,echo=TRUE}
+# Obtenemos los residuales
+std_resid = broom::augment(fit_bxcx)$.std.resid 
+
+# Forma de obtener sólo el p-value
+shapiro.test(std_resid)$p.value
+nortest::lillie.test(std_resid)$p.value
+```
+
+Aún no podemos decir que se cumple normalidad. Esto puede ser a causa de la variable $X6$.
+
+### Homocedasticidad
+
+La razón por la que usamos Box-Cox era para arreglar este problema. 
+
+```{r, echo=TRUE}
+# Forma de obtener sólo los p-value
+lmtest::bptest(fit_bxcx)$p.value[[1]]
+car::ncvTest(fit_bxcx)$p
+```
+
+Podríamos argumentar qué sí, pero aún fallaba lo demás. Hay que arreglar cositas
+
+## Modelo Con Box-Cox y Box-Tidwell
+
+Sigamos con nuestro modelo de transformar a $Y$ como $log(Y)$, y transformemos
+ahora a $X6$ que era la que causa problemas:
+
+```{r, echo=TRUE}
+#car::boxTidwell(log(y) ~ X6, ~X1+X2+X3+X4+X5 , data=datos_ejemplo2)
+```
+
+Error! Box-Tidwell sólo sirve para variables positivas. Hay que transformar a $X6$ a positiva
+
+```{r, echo=TRUE}
+# Constante que es el mínimo valor de la columna X6 más un poquito
+cons = 0.8 
+car::boxTidwell(log(y) ~ I(X6+cons), # Encuentra \lambda para X6
+                ~X1+X2+X3+X4+X5,     # tal que el modelo ya incluya estas variables
+                data=datos_ejemplo2)           # de estos datos
+```
+
+Usando $\lambda \approx -0.5$:
+
+
+```{r, echo=TRUE}
+fit_bxtd = lm(log(y) ~ X1 + X2 + X3 + X4 + X5 + I((X6+cons)^(-0.5)),
+              data=datos_ejemplo2)
+```
+
+Veamos qué pasa con los supuestos ahora sí:
+
+```{r}
+plot(fit_bxtd, 1)
+plot(fit_bxtd, 2)
+plot(fit_bxtd, 3)
+plot(fit_bxtd, 5)
+```
+
+Mejoró otro poco, veamos las pruebas y ojalá que ya:
+
+```{r, echo=TRUE}
+library(broom)
+library(nortest)
+library(tseries)
+std_resid = augment(fit_bxtd)$.std.resid 
+
+#Normalidad
+shapiro.test(std_resid)$p.value
+lillie.test(std_resid)$p.value
+tseries::jarque.bera.test(std_resid)$p.value
+
+
+library(lmtest)
+#Homocedasticidad
+bptest(fit_bxtd)$p.value[[1]]
+ncvTest(fit_bxtd)$p
+
+#Aleatoriedad
+# Como se llaman igual las funciones de las pruebas, necesito llamarlas con todo
+# y paquete para que R las diferencie
+lawstat::runs.test(std_resid)$p.value
+randtests::runs.test(std_resid)$p.value
+```
+```{r, echo=TRUE}
+pruebas_linealidad = car::residualPlots(fit_bxtd, plot=FALSE)
+```
+
+Problemas con normalidad.
+
+### Box-Cox y Polinomial
+
+En lugar de la transformación Box-Tidwell a X6, intentemos agregar un polinomio
+de grado 2 en X6 a ver si lo soluciona:
+
+```{r, echo=TRUE}
+#¿Es neceseraio considerar un polinomio de grado 2 en el modelo para la variable X_i,
+#dado que esta el resto de variables?
+crPlots(fit_bxcx, order = 2)
+
+#Si queremos observar una sola variable
+#crPlots(fit_bxcx, terms = ~X6  ,order = 2)
+
+# Respecto al plot anterior se sugiere un polonomio de grado 2
+fit_polinom = lm(log(y) ~ X1 + X2 + X3 + X4 + X5 + X6 + I(X6^2), data=datos_ejemplo2)
+
+std_resid = augment(fit_polinom)$.std.resid 
+#Normalidad
+shapiro.test(std_resid)$p.value
+lillie.test(std_resid)$p.value
+tseries::jarque.bera.test(std_resid)$p.value
+
+#Homocedasticidad
+
+bptest(fit_polinom)$p.value[[1]]
+
+ncvTest(fit_polinom)$p
+
+```
+```{r, echo=TRUE}
+#Linealidad
+pruebas_linealidad = car::residualPlots(fit_polinom, plot=FALSE)
+```
+
+Ya funcionó! Conseguimos un modelo que sí cumplen los supuestos.
+
+
+
+
+
+

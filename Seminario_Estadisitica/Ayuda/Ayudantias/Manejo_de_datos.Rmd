@@ -1,0 +1,342 @@
+---
+title: "Manejos de Datos"
+author: "César Valle"
+date: "2024-09-05"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(4.0, 3.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+```
+
+# Introducción
+Hasta el momento hemos visto un repaso de lo que usualmente sabemos hacer, tomar unas bases de datos y ajustar un modelo de regresión utilizando variables numéricas o categóricas, además de saber interpretar los resultados, realizar pruebas de hipótesis y calcular intervalos de confianza y poder realizar muchos análisis
+
+Sin embargo, todo esto necesita de algo importante, los datos que nos proporcionan, por lo que es importante que sepamos manejar los datos que se nos dan, para que de esa forma podamos solucionar probelmas como: los datos no están completos, hay que corregir algunas cosas, la información no está limpia
+
+Y es por todo esto que el día de hoy vamos a ver algunas funciones para controlar nuestros dataframes que pueden ser de utilidad en el futuro, además, la presentaremos de dos formas, utilizando Rbase, y utilizando la paquetería dplyr
+
+# Presentación de los datos
+Los datos que revisaremos en esta ayudantía son datos que contienen información de ciertos pacientes con cancer y algunos donadores sanos de los que extrajeron una muestra de plaquetas, para intentar usar la expresión de los genes de las mismas para utilizarlas en un modelo de diagnóstico
+
+En particular, estos datos son útiles para la ayudantía de hoy, porque nos permitiran mostrar las aacciones más comunes que debemos realizar al momento de manejar datos
+
+Dicho todo lo anterior, podemos comenzar 
+
+# Manos a la obra
+Antes de comenzar, se realizó un pequeño preprocesamiento sobre el archivo "Ids.txt", sin embargo, se puede revisar en el \textbf{Anexo} 
+
+```{r preprocesamiento, include=FALSE}
+Ids <- read.table("Ids.txt")
+
+#Agregamos un número para diferenciar columnas más adelante
+Ids$V1 <- paste(Ids$V1,1:dim(Ids)[1], sep = "_")
+
+#Aplicamos transpuesta para tener la información por individuo
+Ids1 <- data.frame(t(Ids))
+
+#Utilizamos la primera fila como nombres de columnas y las eliminamos
+colnames(Ids1)<-unlist(Ids1[1,])
+Ids1 <- Ids1[-1,]
+
+# Y cargamos también la otra base de datos 
+train <- read.csv("mmc2.xlsx - Training.csv")
+colnames(train)<- unlist(train[3,])
+train <- train[4:178,]
+```
+
+Como regularmente hacemos, vamos a primero conocer el tipo de datos con el que estamos trabajando (esto no es necesario mostrar en el documento final, sin embargo en este caso se presenta en el pdf por simplicidad, al igual que se mostrarán otras cosas en el propio pdf)
+
+```{r estructura_train, echo=FALSE}
+str(train)
+```
+Podemos ver que tenemos información sobre los individuos, como el tipo de cancer, el sexo, la edad, y otra información
+
+Veamos ahora la estructura de la base de datos "Ids"
+
+```{r estructura_Ids, echo=FALSE}
+str(Ids1)
+```
+Podemos ver que también hay otro tipo de información, aunque esta tal vez no sea tan clara
+
+Antes de comenzar, pasaremos las columnas de género y tipo de cancer a tipo factor, y la edad a tipo numérico (dado que ya se sabe la forma de realizarse, se presenta a continuación sólo el cambio ya realizado), y presentaremos los primeros 5 valores del dataframe, para futuras referencias
+
+```{r factor_numerico, echo=FALSE}
+#Transformamos
+train$Gender<-factor(train$Gender)
+train$`Patient type`<-factor(train$`Patient type`)
+train$Age<-as.numeric(train$Age)
+
+#Presentamos el cambio
+str(train)
+head(train)
+```
+
+Podemos ver que el cambio ya está realizado, por lo que podemos continuar con nuestro trabajo
+
+## Filtrar los datos
+En ocasiones nos interesa filtrar por ejemplo sólo a las mujeres, sólo cierto rango de edad, etcétera, por lo que es importante saber filtrar de una base completa, a una sólo con la selección de interés
+
+### R base
+
+Si queremos filtrar una base de datos en R base tenemos dos formas:
+
+\begin{itemize}
+  \item[1.] Con un vector booleano: De esta forma indicamos cual sí (TRUE) y cual no (FALSE)
+  Podemos necesitar por ejemplo sólo a los pacientes mayores de 60 años, tendríamos lo siguiente
+  \end{itemize}
+```{r mayores_60, echo=TRUE}
+#En este caso generamos un vector lógico usando vectores numéricos
+mayores<-(train$Age>=60)&(!is.na(train$Age)) #Esto es un vector lógico
+
+#Veamos los primeros 5 valores
+mayores[1:5]
+
+#Ahora usamos ese vector para indicar que valores queremos
+train_may60<-train[mayores,]
+
+#Y podemos ver que el mínimo en efecto es mayor a 60
+min(train_may60$Age)
+```
+\begin{itemize}
+  \item[2.] Utilizando la función subset: Filtremos ahora a sólo los individuos que tengan un único tipo de cancer
+  \end{itemize}
+```{r HBC, echo=TRUE}
+#En este caso, escribimos la condición a continuación
+train_HBC<-subset(train,`Patient type`=="Hepatobiliary carcinoma (HBC)")
+
+#Podemos ver que en efecto sólo tenemos este tipo de cancer
+head(train_HBC,10)
+```
+
+
+### Dplyr
+Tenemos directamente la función filter
+```{r HBC_filter, echo=TRUE}
+#Escribimos, de nuevo, directamente la condición
+train_HBC_filter<-train%>%filter(`Patient type`=="Hepatobiliary carcinoma (HBC)")
+
+#Podemo ver que en efecto sólo tenemos este tipo de cancer
+head(train_HBC_filter,10)
+```
+
+Podemos ver que en realidad subset y filter tienen los mismos argumentos, y además tienen una ventaja, y es que podemos filtrar por muchaos valores, simplemente añadiéndolo como argumento a la función (haremos el ejemplo sólo con filter, pero con subset funciona exactamente igual)
+
+```{r multi_filter, echo=TRUE}
+#En este caso, cada argmento agregado es una condición más
+train_multi_filter<-train%>%filter(`Patient type`=="Hepatobiliary carcinoma (HBC)",Age<60)
+
+
+#Podemo ver que en efecto sólo tenemos ese cancer y el rango de edad
+head(train_multi_filter,8)
+```
+
+## Ordenar nuestro dataframe
+Para presentar una tabla, un encabezado, o en ocasiones, para tener un formato en particular, podemos necesitar ordenar por una variable, y aquí es donde presentamos cómo se hace
+
+### R base
+Para ordenar en R base, necesitamos hacer uso de una función que se llama "order", la cuál nos regresa los índices de los valores ya ordenados (es decir, primero ordena y después nos da los índices), a continuación ordenaremos por la edad
+
+```{r Order, echo=TRUE}
+#Obtenemos índices
+indices<-order(train$Age) #Creciente
+#indices_b<-order(train$Age, decreasing = TRUE) #Decreciente
+
+#presentamos el head
+head(train[indices,])
+#head(train[indices_b,])
+```
+
+### Dplyr
+En este caso, tenemos la función "arrange", a la que basta con introducirle la columna a ordenar
+```{r arrange, echo=TRUE}
+#Para ordenar de manera creciente
+train %>%
+  arrange(Age) %>%
+  head() 
+
+#De manera decreciente
+#train %>%
+  #arrange(desc(Age)) %>%
+  #head() 
+```
+
+## Seleccionar variables 
+En este caso es muy obvio, podríamos, en algunos casos, querer tener menos variables, pues nos pueden  ensuciar mucho la información que tenemos, debido a esto, es necesario elegir sólo las columnas con las que trabajaremos, en este caso vamnos a filtar las columnas del dataframe Ids
+
+### R base
+De nueva cuenta tenemos dos formas de hacer el filtro
+
+\begin{itemize}
+  \item[1.] Podemos utilizar los nombres (en forma de string),para filtrar
+\end{itemize}
+```{r fil_cols, echo=TRUE}
+#En este caso colocamos un vector con los nombres de las columnas 
+#Dentro de corchetes
+#(también podríamos usar los índices de las columnas, pero así es más certero)
+Ids_filt<-Ids1[,c("Sample_name_2","Sample_char_4","Sample_char_6")]
+
+#Podemos ver que en efecto son menos columnas
+str(Ids_filt)
+```
+\begin{itemize}  
+  \item[2.] De nueva cuenta, la segunda forma es utilizando la función subset, pero con un argumento adicional 
+\end{itemize}
+```{r fil_subset, echo=TRUE}
+#De nueva cuenta, utilizamos los nombres, pero ahora no necesitan
+#estar escritos como strings
+Ids_filt_subset<-subset(Ids1,select = c(Sample_name_2,Sample_char_4,Sample_char_6))
+
+
+#Podemos ver el cambio de columnas
+str(Ids_filt_subset)
+```
+
+
+### Dplyr
+Con dplyr tenemos la función "select"
+```{r filt_select, echo = TRUE}
+# Repetimos el mismo proceso, únicamente colocamos los nombres
+Ids1 %>%
+  dplyr::select(c(Sample_name_2,Sample_char_4,Sample_char_6)) %>% 
+  str()
+```
+
+## Calcular nuevas variables
+De igual forma, podríamos querer conseguir más información, por ejemplo, actualmente sabemos que tenemos la edad de los individuos, entonces podríamos obtener su edad en meses, o por ejemplo, en este caso, cuyo cancer tiene cierta mutación en particular sin embargo, es un poco complejo leer la variable, pues hay escritas muchas cosas que posiblemente no entendemos, pero podríamos sólo querer un "Sí y no" (o un 1 y 0), así que vamos a trabajar con eso
+
+### R base
+En R base es una simple asignación
+```{r nueva_R, echo=TRUE}
+#Realizamos nuestro "ifelse"
+train$Mutacion<-ifelse(grepl("mut|[+]|triple",train$Mutation),"Si","No")
+
+#Presentamos tras ordenar
+head(train[order(train$Mutation, decreasing = TRUE),
+           c("Mutacion","Mutation")])
+
+#Y ahora ordenamos a la inversa
+head(train[order(train$Mutation, decreasing = FALSE),
+           c("Mutacion","Mutation")])
+```
+### dplyr 
+En este caso, hay que utilizar la función mutate
+```{r mutate, echo=TRUE}
+train %>% 
+  
+  #Dentro de mutate escribimos la función
+  mutate(Mut = ifelse(grepl("mut|[+]|triple",Mutation),"Si","No")) %>% 
+  
+  dplyr::select(c(Mutation,Mut)) %>%
+  arrange(desc(Mutation)) %>% 
+  head()
+```
+## Evaluar funciones por grupo
+Esto ya lo conocemos, cuando nosotros tenemos grupos, podemos querer calcular estadísticas para cada uno de los grupos, por lo que vamos a revisar
+
+### R base
+En este caso vamos a utilizar la función "aggregate", y algunas de sus particularidades, a primero sólo una estadística
+
+```{r aggregate, echo=TRUE}
+aggregate(train, #EL dataframe
+               Age ~ `Patient type`, #Una fórmula donde van las variables cuya estadísticas calcular,
+                #explicadas por la que separa
+               FUN = mean
+               )
+```
+
+También podemos poner múltiples estadísticas, utilizando un vector
+
+```{r aggregate_multiest, echo=TRUE}
+aggregate(train, #EL dataframe
+               Age ~ `Patient type`, #Una fórmula donde van primero las variables cuya estadísticas calcular, 
+          #explicadas por la que separa
+               FUN = function(x) c(mn = mean(x), md = median(x), var = var(x)) #las funciones a presentar
+               )
+```
+
+Y finalmente podemos separar por más variables, agregando del lado derecho 
+
+```{r aggregate_multisep, echo=TRUE}
+aggregate(train, #EL dataframe
+               Age ~ `Patient type`+Gender, #Una fórmula donde van primero las variables cuya estadísticas calcular, 
+          #explicadas por la que separa
+               FUN = function(x) c(mn = mean(x), md = median(x), var = var(x)) #las funciones a presentar
+               )
+```
+
+Para el caso de estos datos, no tenemos más variables numéricas, sin embargo, para obtener las estadísticas de más variables, se colocaría del lado izquierdo y todas las funciones se obtendrán de igual forma
+
+### dplyr 
+Ya conocemos el conjunto de funciones "group_by" y "summarise", primero aplicamos group_by, y excribimos todas las variables por las que vamos a separar (el lado derecho de la fórmula de arriba), posteriormente, en la función "summarise" escribimos las funciones de interés, aplicadas sobre las variables de interés, lo que permite ser selectivo con las funciones y variables
+```{r summarise, echo=TRUE}
+train %>% 
+  #Aquí agrupamos
+  group_by(`Patient type`, Gender) %>% 
+  
+  #Aquí elegimos las características que buscamos para cada grupo
+  summarise("Edad_mn" = mean(Age, na.rm = TRUE),"Edad_md"=median(Age, na.rm = TRUE), "Edad_var"=var(Age, na.rm = TRUE))
+```
+Y con esto ya hemos aprendido bastantes de los apsectos que debemos de trabajar.
+\newpage
+# Anexo
+Aquí eso podemos comentar el preprocesamiento que se aplicó sobre la base de datos "Ids.txt"
+
+```{r preprocesamiento_2, echo=TRUE, eval=FALSE}
+Ids <- read.table("Ids.txt")
+
+#Agregamos un número para diferenciar columnas más adelante
+Ids$V1 <- paste(Ids$V1,1:dim(Ids)[1], sep = "_")
+
+#Aplicamos transpuesta para tener la información por individuo
+Ids1 <- data.frame(t(Ids))
+
+#Utilizamos la primera fila como nombres de columnas y las eliminamos
+colnames(Ids1)<-unlist(Ids1[1,])
+Ids1 <- Ids1[-1,]
+
+# Y cargamos también la otra base de datos 
+train <- read.csv("mmc2.xlsx - Training.csv")
+colnames(train)<- unlist(train[3,])
+train <- train[4:178,]
+
+```
+Lo que se realizó fue cambiar la primera variable, con la intención de que un valor en particular no se repita
+
+Posteriormente se transpuso el dataframe, con la intención de cambiar la posición de columnas y filas
+
+Ocupar la nueva primera fila (antes primera columna) como nueva fila de nombres
+
+Eliminar esa fila de nombres, pues no la necesitamos más (para eliminar filas o columnas en R base es necesario escribir la posición de la fila o columna, con un menos, mientras que con dplyr podemos escribir el nombres, pero también con un menos)
+
+Y en la base de datos de train también se hizo un preprocesamiento para filtrar sólo lo que nos es de interés

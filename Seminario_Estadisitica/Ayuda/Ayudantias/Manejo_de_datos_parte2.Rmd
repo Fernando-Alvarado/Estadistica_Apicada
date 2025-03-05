@@ -1,0 +1,563 @@
+---
+title: "Manejos de Datos 2"
+author: "César Valle"
+date: "10/09/2024"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(4.0, 3.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(tidyverse)  # Más manejo de datos
+library(purrr)      # Para Map
+```
+
+
+En esta ocasión vamos a continuar hablando de cómo podemos realizar el manejo de datos, en esta ocasión comenzaremos realizando un preprocesamiento extra al archivo "Ids.txt" consistente en limpiar un poco la información y extraer sólo lo relevante (se encuentra en el archivo .Rmd, si hay tiempo, se comentará en clase)
+
+```{r carga_procesamiento, include=FALSE}
+#También cargamos toda la información de los individuos
+Ids <- read.table("Ids.txt")
+
+#Agregamos un número para diferenciar columnas más adelante
+Ids$V1 <- paste(Ids$V1,1:dim(Ids)[1], sep = "_")
+
+#Aplicamos transpuesta para tener la información por individuo
+Ids1 <- data.frame(t(Ids))
+
+#Utilizamos la primera fila como nombres de columnas y las eliminamos
+colnames(Ids1)<-unlist(Ids1[1,])
+Ids1 <- Ids1[-1,]
+
+#Ahora extraemos los ID que coinciden con los archivos train/validation
+Ids1$ID <- ifelse(grepl("patient[[:space:]]id[:]",
+                 Ids1$`Sample_char_5`),
+                 gsub("patient[[:space:]]id[:][[:space:]]","",Ids1$`Sample_char_5`),
+                 gsub("[-]TR[[:digit:]]{3}|[-]TR[-][[:digit:]]{3}","", Ids1$`Sample_name_2`))
+
+Ids1$ID[261]<-"MGH-HBC-BRAF4"
+
+#También aplicamos el preprocesamiento sobre que ya comentamos sobre train
+#Cargamos los datos de train
+train <- read.csv("mmc2.xlsx - Training.csv")
+
+#Realizamos un procesamiento para eliminar espacios en blanco y colocar nombres
+#correctamente
+colnames(train)<- unlist(train[3,])
+train <- train[4:178,]
+```
+
+Ya conocemos los datos y tenemos una forma de trabajar, por lo que podemos ponernos a trabajar de inmediato :D
+
+# Merge (unión de bases de datos)
+En muchas ocasiones necesitamos extraer información de dos bases de datos diferentes, las cuales comparten algo en particular que nos permite conectarlas, como ya hemos comentado anteriormente, en este caso, el archivo de train continene información general de los individuos, mientras que el archivo "Ids.txt" contiene otro tipo de información, que nos puede ayudar a conectar con más información
+
+La idea sería unir la información de todas las bases de datos posibles, y con ellas trabajar, aunque para explicar lo que haremos a continuación, vamos a trabajar sólo con una muy pequeña muestra de datos, que serán las dos tablas a continuación
+
+```{r filtermerge, echo=TRUE}
+#Primero filtramos la tabla de train
+train_merge<- train %>% 
+  dplyr::filter(Sample %in% c("HC-01", "GBM-480"))%>%
+  dplyr::select(c(Sample,`Patient type`, Gender, Age))
+
+#Presentamos
+train_merge%>%
+  kbl(booktabs = TRUE, align = "c") #Con esta función se crea una tabla
+
+#Y también filtramos la tabla de IDs
+Ids_merge<- Ids1 %>% 
+  filter(ID %in% c("MGH-HBC-BRAF4", "GBM-480")) %>%
+  dplyr::select(c(Sample_name_2:Sample_char_4,ID))
+
+#Presentamos
+Ids_merge%>%
+  kbl(booktabs = TRUE, align = "c") %>% #Con esta función se crea una tabla
+  
+  kable_styling(latex_options = "striped") #Un poquito de presentación
+#Veremos más opciones más adelante
+```
+A partir de aquí también consideraremos que la primera tabla es la tabla "izquierda" y la segunda tabla es la tabla "derecha". Lo cual es importante debido a que tenemos diferentes formas de realizar nuestra unión
+
+De antemano, lo importante es entender que, la unión se realiza a través de columnas que comparten información de cierto tipo, en el caso de las tablas previamente presentadas, la información con la que vamos a realizar la unión son las variables "Sample" y "ID", respectivamente, dicho esto, veamos como se realizan las uniones y los tipos existentes
+
+## Inner join
+Este tipo de unión es el tipo de unión más común, pues consiste en que el resultado de la unión es una tabla con la información de aquellas muestras que aparezcan en los dos dataframes que se unieron (la intersección de los datos), veremos los ejemplos de cómo se hace, tanto en R base, como con dplyr
+
+### R base
+```{r inner_base, echo=TRUE}
+merge(train_merge, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      by.x = "Sample", #Columna del dataframe "izquierdo"
+      by.y = "ID")%>% #Columna del dataframe "Derecho"
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos las columnas de texto
+  column_spec(2:4, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen")
+```
+En este caso, podemos ver que sólo obtuvimos una fila, pues es el único individuo que coincide en ambos dataframe, por otro lado, tenemos resaltadas en negro las columnas pertenecientes al dataframe de train, y en azul a las de dataframe de Ids, por lo que podemos ver cómo funciona
+
+### Dplyr
+Un detalle con dplyr es que las columnas a utilizar necesitan tener el mismo nombre, en este caso vamos a agregar una columna en train que se llame "ID"
+
+```{r inner_dplyr, echo=TRUE}
+#Creamos y agregamos la columna de IFD
+train_merge_dplyr <- train_merge%>%
+  mutate(ID = Sample)%>%
+  dplyr::select(`Patient type`:ID)
+
+inner_join(train_merge_dplyr, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      "ID")%>% #Columna para unir
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos las columnas de texto
+  column_spec(1:3, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen")
+```
+Hacemos los mismos comentarios que hicimos previamente, podemos ver que la única diferencia es la posición de la columna ID, que se encuentra entre las columnas de cada tabla
+
+Dicho esto, podemos revisar el resto de de uniones
+
+## Left Join
+En este caso, lo que se hace es mantener todas las observaciones de la tabla izquierda, de forma que si no se encuentra coincidencia en la tabla derecha, igualmente se agrega
+
+### R base
+```{r left_base, echo=TRUE}
+merge(train_merge, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      by.x = "Sample", #Columna del dataframe "izquierdo"
+      by.y = "ID", #Columna del dataframe "Derecho"
+      all.x = TRUE)%>% #Todos de la izquierda
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos la fila de texto
+  row_spec(2, color = "red", background = "OliveGreen") %>%
+  
+  #Personalizamos las columnas
+  column_spec(2:4, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen") 
+```
+
+En este caso, incluímos en color verde al segundo individuo, que sólo aparece en el dataframe "izquierdo", por lo que no tiene información completa
+
+### Dplyr
+```{r left_dplyr, echo=TRUE}
+left_join(train_merge_dplyr, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      "ID")%>% #Columna a unir
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos la fila de texto
+  row_spec(1, color = "red", background = "OliveGreen") %>%
+  
+  #Personalizamos las columnas
+  column_spec(1:3, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen") 
+```
+
+De igual forma, podemos ver que la diferencia es un cambio en la posición, pero obtenemos el mismo resultado
+
+## Right Join
+En este caso, el proceso es análogo al anterior, pero se mantiene la información de la tabla derecha
+
+### R base
+```{r right_base, echo=TRUE}
+merge(train_merge, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      by.x = "Sample", #Columna del dataframe "izquierdo"
+      by.y = "ID", #Columna del dataframe "Derecho"
+      all.y = TRUE)%>% #Todos de la derecha
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos la fila de texto
+  row_spec(2, color = "yellow", background = "Orchid") %>%
+  
+  #Personalizamos las columnas
+  column_spec(2:4, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen") %>%
+  
+  #Ajustamos el tamaño
+  kable_styling(latex_options = c("scale_down")) %>%
+  
+  #Evitamos que cambie de posición 
+  kable_styling(latex_options = c("hold_position"))
+```
+
+Tenemos lo mismo que teníamos en la parte superior (cambiando el color de la fila)
+
+### Dplyr
+```{r right_dplyr, echo=TRUE}
+right_join(train_merge_dplyr, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      "ID")%>% #Columna a unir
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos la fila de texto
+  row_spec(2, color = "yellow", background = "Orchid") %>%
+  
+  #Personalizamos las columnas
+  column_spec(1:3, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen") %>%
+  
+  #Ajustamos el tamaño
+  kable_styling(latex_options = c("scale_down"))
+```
+
+De nueva cuenta tenemos lo mismo que teníamos anteriormente
+
+## Full Join
+Como su nombre lo indica, consiste en mantener toda la información de ambas tablas
+
+### R base
+```{r full_base, echo=TRUE}
+merge(train_merge, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      by.x = "Sample", #Columna del dataframe "izquierdo"
+      by.y = "ID", #Columna del dataframe "Derecho"
+      all = TRUE)%>% #Todos
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos la fila de texto
+  row_spec(3, color = "yellow", background = "Orchid") %>%
+  row_spec(2, color = "red", background = "OliveGreen")%>%
+  
+  #Personalizamos las columnas
+  column_spec(2:4, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen") %>%
+  
+  #Ajustamos el tamaño
+  kable_styling(latex_options = c("scale_down", "hold_position"))
+```
+
+Preservamos el color de las filas, para que sea más fácil identificar los datos
+
+### Dplyr
+
+```{r full_dplyr, echo=TRUE}
+full_join(train_merge_dplyr, #Dataframe "izquierdo"
+      Ids_merge, #Dataframe "derecho"
+      "ID")%>% #Columna a unir
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Personalizamos la fila de texto
+  row_spec(3, color = "yellow", background = "Orchid") %>%
+  row_spec(1, color = "red", background = "OliveGreen")%>%
+  
+  #Personalizamos las columnas
+  column_spec(1:3, color = "pink", background = "black")  %>%
+  column_spec(5:7, color = "black", background = "BlueGreen") %>%
+  
+  #Ajustamos el tamaño
+  kable_styling(latex_options = c("scale_down", "hold_position"))
+```
+De nueva cuenta, todo funciona bien
+
+Como podemos ver, la ventaja de dplyr es que nos ordena los datos de bonita manera, mientras que en R base es más sencillo, pues sólo tenemos una función para realizar todo
+
+
+# Formatos wide y long (Anchas y largas)
+En este caso, podría ser dificil entender lo que significa cada uno de estos términos, por lo que a continuación vamos a primero explicar eso, utilizando bases de datos más sencillas
+
+
+## Formato long
+El formato long o formato largo, es el que se tendría a continuación
+```{r long, echo=FALSE}
+#Este es el código para presentar la tabla a la derecha
+set.seed(519)
+longdata1 <- data.frame(ID = 1:3,
+    expand.grid(Name = c("Dora", "John", "Rob"), Year = 2012:2014),
+    BMI = round(runif(9, 18, 35), 0)
+    )
+```
+
+```{r derecha, echo=FALSE}
+longdata1 %>% 
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE) %>% 
+  
+  #Ajustamos la posición
+  kable_styling(position = "float_right", font_size = 7)
+
+```
+En este caso, lo que tenemos es que los individuos y sus identificadores se repiten, sin embargo, los años y el indice de masa corporal que tienen sí varía
+
+\color{White}a
+\color{Black}
+
+Por lo anterior, se llama formato largo (considerando largo como algo extenso de abajo hacia arriba), y la información que tenemos de cada individuo se va extendiendo hacia abajo 
+
+
+```{r, echo=TRUE, eval=FALSE}
+longdata1 %>% 
+  
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE, align = "c") %>% 
+  
+  #Ajustamos la posición
+  kable_styling(position = "float_right")
+```
+
+
+## Formato wide
+```{r wide1, echo=FALSE}
+widedata1 <-  longdata1 %>% 
+  pivot_wider(, names_from = Year, values_from = BMI)
+```
+
+En donde los individuos ya no se repiten, y en su lugar, los años pasaron a convertirse en columnas, mientras que el valor de BMI es el valor que tiene cada columna
+
+Por lo anterior, se llama formato ancho (considerando ancho como algo extenso de izquierda a derecha), y la información que tenemos de cada individuo se va extendiendo hacia la derecha (se agregan columnas)
+
+
+```{r, echo = TRUE}
+widedata1  %>% 
+  #Le aplicaremos formato de tabla a continuación
+  kbl(booktabs = TRUE) %>% 
+  
+  #Ajustamos la posición
+  kable_styling(position = "center")
+```
+
+Visto así, por lo regular, como solemos tener un valor por columna, podríamos decir que la información suele estar en formato wide, aunque en ocasiones podría estar en formato long (principalmente en cosas de tiempo como el ejemplo anterior)
+
+Pero ¿Cómo pasar de un formato al otro?
+Para eso vamos a usar las funciones "pivot_longer" y "pivot_wider" de la paquetería tidyverse, vamos a ver su funcionamiento
+
+### Pasar a wide
+
+```{r long2wide, echo=TRUE}
+wide <- longdata1 %>% pivot_wider(, names_from = Year, #La columna que pasará a ser los nombres
+                    values_from = BMI) #La columna donde sale el valor
+
+wide %>% 
+  
+  #Formato de tabla
+  kbl(booktabs = TRUE) %>% 
+  
+  #Estiramos la tabla para que abarque todo el espacio
+  kable_styling(full_width = T)
+```
+Podemos ver que en efecto, tenemos la misma información que presentamos arriba
+
+### Pasar a long
+```{r wide2long, echo=TRUE}
+long<- wide %>% pivot_longer(c("2012","2013","2014"), #Las columnas a mover
+              names_to = "Year", #La columna que tendrá los nombres 
+              values_to = "BMI") #La columna que tendrá el valor
+long %>% mutate(ID = as.character(ID)) %>%
+  
+  #Formato de tabla
+  kbl(booktabs = TRUE) %>% 
+  
+  #Estiramos la tabla para que abarque todo el espacio
+  kable_styling(full_width = T) %>%
+  
+  #Estiramos menos feo
+  column_spec(1, width = "8cm")
+
+```
+
+Podemos ver que en efecto todo coincide, y con esto tenemos una herramienta útil para poder hacer transformaciones de las tablas
+
+# Ciclos y programación en paralelo 
+En general, muchas veces vamos a querer realizar series de acciones, o más bien algoritmos, que queramos que se repitan a lo largo de un conjunto de valores, por ejemplo, transformar varias columnas de un dataframe en tipo factor, sin embargo, a pesar de que hay varias formas de realizar este proceso, va a haber algunos que sean más eficientes que otros 
+
+y en este caso vamos a ver qué formas tenemos de trabajar
+
+## Presentación de los datos 
+Vamos a trabajar con una paquetería llamada \textbf{mtcars}, y vamos a ver y discutir diferentes códigos sobre cómo realizar cierto algoritmo sobre el siguiente iterable
+
+```{r mtcars, echo=TRUE}
+#Cargamos la base de datos y la separamos con split
+by_cyl <- split(mtcars, mtcars$cyl)
+#Esto nos regresa una lista, donde cada una de las entradas es
+#un dataframe, separados por cada valor de cyl
+#(que toma los valores 4, 6 y 8)
+#Es decir, tenemos 3 dataframes en la lista
+#(recuerden que la lista puede tener lo que sea, incluso otras listas)
+```
+
+Como se comenta en el código, es una lista
+
+## Con R base
+
+### Ciclos for
+Una herramienta que ya conocemos, son los ciclos, en resumidas cuentas, un ciclo consiste en indicar una variable que va a ir tomando cada uno de los valores de un arreglo (dicho arreglo, en la mayoría de casos, puede ser de cualquier tipo, un vector, una lista, )
+
+
+```{r ciclo_for, echo=TRUE}
+#Primero generamos una lista del largo de nuestra lista
+slopes <- double(length(by_cyl))
+
+#vemos que son sólo ceros
+slopes
+
+
+#Ahora vamos a pasar por cada uno de los índices de la lista
+seq_along(by_cyl)
+
+#Para hacer un for utilizamos
+for #Con la palabra reservada "for"
+
+(i in seq_along(by_cyl)) 
+  #Entre paréntesis agregamos el nombre de la variable y el vector a recorrer
+  #En etse caos variable "i" y pasamos por el vector "seq_along(by_cyl)"
+  
+  { #Abrimos llaves
+  
+  #Escrbimos el código, en este caso, es un modelo de regresión
+  #Donde lo que cambia es el dataframe que usamos (pues usamos cada uno de la lista)
+  model <- lm(mpg ~ wt, data = by_cyl[[i]])
+  
+  # Una vez hecho el modelo, guardamos el coeficiente número 2 (asociado a wt)
+  # Lo guardamos en el mismo índice en que nos encontramos ("i")
+  slopes[[i]] <- coef(model)[[2]]
+}
+
+#Si ahora sacamos la variable, veremos que es diferente
+slopes
+```
+
+### La familia lapply
+Otra forma en que podemos trabajar con los ciclos sería con la familia apply en R base, en este caso veremos un ejemplo que es la función "lapply" y también usaremos la función "vapply", y más adelante verán un ejemplo con la función sapply
+
+En general, todas son subversiones de la función lapply, con algunas particularidades cada una 
+
+
+```{r fmilia_apply, echo=TRUE}
+# Aquí haremos lo siguiente
+
+models <- lapply( #Primero, la función es lapply
+  
+  by_cyl, #Incluimos la lista (o vector, segun tengan)
+  
+  function(data) lm(mpg ~ wt, data = data) #Y finalmente incluimos una función
+  #Como podemos ver, la variable que cambiará es "data"
+  #Y regresa el modelo de regresión completo
+  
+  )
+
+#Hasta aquí, uno se pregunta qué obtendremos, pues generamos una lista
+#donde cada entrada es un modelo de regresión lineal múltiple, lo que cambia
+#es el dataframe con el que se está trabajando 
+
+
+#Finalmente, aplicamos "vapply", donde estamos agregando un valor adicional, veamos qué es
+vapply(   #Nombre de la función
+  
+  models, #El arreglo (en este caso, lista)
+  
+  function(x) coef(x)[[2]], #La función (en este caso, regresa el segundo coeficiente)
+  
+  
+  double(1)   #Finalmente, este es un valor de verificación
+  #Lo que hace "vapply" es convertir cada valor al tipo de referencia (si es posible)
+  
+  #Además, dado que sólo recuperamos un valor por cada objeto en la lista
+  #nos regresa un vector
+  
+  )
+
+
+#En este caso, este último valor se muestra directamente
+```
+## Inlcuyendo un poco de dplyr 
+En este caso, nos ayudaremos del pipe (%>%), para poder facilitar la lectura de nuestro código, y así tenerlo mejor estructurado
+
+```{r con_dplyr, echo=TRUE}
+# Comenzamos con la lista
+by_cyl %>% 
+  
+  #De cada valor en la lista extraemos un modelo (como vimos previamente)
+  lapply(function(data) lm(mpg ~ wt, data = data)) %>% 
+  
+  #Ahora, de la lista de modelos, extraemos de cada modelo los coeficientes
+  lapply(coef) %>% 
+  
+  #Finalmente, de la lista de coeficientes, extraemos sólo el segundo valor
+  #Y lo volvemos numérico 
+  vapply(function(x) x[[2]], double(1))
+```
+
+Y en este caso está todo mejor estructurado y no perdimos información, pero... ¿Habrá alguna forma de hacerlo todavía con menos lineas o más eficientemente?
+
+Pues de hecho sí, y es la última forma que veremos, que será utilizando la paquetería purrr
+
+## Con purrr
+Una función que tenemos disponible para trabajar, es la conocida como función purrr, que nos ayudará a trabajar de una manera más eficiente los ciclos que tenemos que realizar
+
+Primero se presentará su uso, para que podamos estar en la misma onda, y con esto tendrán un ejercicio de clase
+
+```{r con_purrr, echo=TRUE}
+#Utilizamos la lista, como hasta ahora
+by_cyl %>%
+  
+  map( #El iterable ya está, entonces lo saltamos
+    
+    .f=function(.x) #la función debe tener por argumento a .x (requisito obligatorio)
+      
+      lm(mpg ~ wt, data = .x) #Indicamos que nos regrese el modelo (de nuevo)
+    )%>%
+  
+  
+  #Aquí están entrando modelos 
+  map(.f=function(.x) coef(.x)[2]) %>% #Sólo decimos que devuelva el beta1 de cada modelo
+      
+  
+  #Aquí desenlistamos (pues recibimos una lista) 
+  unlist()
+  
+  #Esta es otra forma de pasar a vector, pero esta transforma todos los valores al
+  #mismo nivel, y además, con cosas que no deberían ir en vectores, no funciona como esperamos
+  #Sin mencionar que fuerza la transformación, por lo que, podríamos acabar con más valores en 
+  #el vector que en la lista, entonces úsenlo con cabez
+```
+
+
+Y la última forma que se usará será el proceso que tiene en su ejercicio de clase :P
