@@ -1,0 +1,102 @@
+---
+title: "Analisis equidad en empresa"
+author: "Alvarado Palacios Fernando"
+date: "6 Febrero 2025"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.5cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Cargamos nuestras librerías 
+library(ggplot2)
+library(dplyr)
+
+```
+
+
+```{R, echo=FALSE}
+setwd("C:/Users/ferna/Documents/Seminario Estadistica/EjercicioExtra1") #Cargando de donde voy a traer los datos
+datos <- read.csv("./salarios.csv") #Cargando los datos
+datos$sexo <- factor(datos$sexo, levels = c(1, 2), labels = c("Hombre", "Mujer"))
+
+#Agrupando los datos por sexo
+datos %>% 
+    group_by(sexo) %>%
+    summarise_all(mean) -> datos.summary
+
+```
+
+## Haciendo un analisis descriptivo de los datos
+
+### Calculando varianza y media sin distinguir entre sexo
+
+```{R echo=FALSE}
+
+print(paste("Media de los salarios", round(mean(datos$salario) ,2) ))
+print(paste("Varianza de los salarios",  round(var(datos$salario) ,2)))
+print(paste("Media de los años de experiecia", round(mean(datos$anios_trabajo) ,2) ))
+print(paste("Varianza de los años de experiecia",  round(var(datos$anios_trabajo) ,2)))
+
+
+```
+
+
+### Calculando varianza y media separando entre Hombres y Mujeres
+
+```{R echo=FALSE}
+datos.summary 
+```
+
+
+### Grafica para poder visualizar los resultado anteriores
+```{R echo=FALSE, fig.width=4, fig.height=2}
+ggplot(datos, aes(x = anios_trabajo, y =  salario, color = sexo)) +
+  geom_point() +
+  geom_point(data = datos.summary, shape=15, size=3)  +
+  labs(
+    title = "Comparacion años de trabajo y salario por sexo"
+  )
+```
+
+En esta grafica podemos ver la media de salarios y de años de trabajo por sexo, donde en promedio a los hombre les pagan mas con menos años de experiencia que a las mujeres
+
+
+## Haciendo Boxplot, para poder ver los datos
+```{R echo=FALSE, fig.width=4, fig.height=2}
+ggplot(datos, aes(x = sexo, y = salario, fill = sexo)) +
+  geom_boxplot() +
+  geom_point(data = datos, aes(x = sexo, y = salario)) +
+  labs(
+    title = "Salarios por sexo"
+  )
+```
+
+En esta grafica podemos ver que aunque la media de los salarios sean parecidos, los hombres tienen un mayor rango de salarios que las mujeres
+
+
+```{R echo=FALSE, fig.width=4, fig.height=2}
+ggplot(datos, aes(x = sexo, y = anios_trabajo, fill = sexo)) +
+  geom_boxplot() +
+  geom_point(data = datos, aes(x = sexo, y = anios_trabajo)) +
+  labs(
+    title = "Años de trabajo por sexo"
+  )
+```
+
+Con esta grafica podemos ver que en promedio los hombres  contratados cuantan con menos años de experiencia que las mujeres
+
+
+# Conclusion
+
+Con los datos proporcionados por la empresa, podemos ver que en general los los salarios no dependen de los años de antiguedad, si no por el sexo ya que los hombre gana mas con menos años de experiencia que las mujeres, politica que debe cambiar para tener una equidad de genero en la empresa
+
+
+
+
