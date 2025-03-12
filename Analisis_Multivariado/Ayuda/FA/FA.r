@@ -19,23 +19,25 @@ calificaciones=read.table(here("../Datos/calificaciones.txt"),header = T)
 R=round(cor(calificaciones),3);R
 
 # Realizamos factor de análisis principales sin rotación con 1 factor
-efa=fa(r=R,nfactors=1,fm="pa",rotate="none")
+efa=fa(r=R,nfactors=1,fm="pa",rotate="none")#-- modelo con 1 facotr
 efa
 
 # Realizamos factor de análisis principales sin rotación con 2 facores
-efa=fa(r=R,nfactors=2,fm="pa",rotate="none")
+efa=fa(r=R,nfactors=2,fm="pa",rotate="none")# -- ya con dos factores explica mejor el comportamiento 
 efa
 
 # Realizamos factor de análisis por mle sin rotación con 1 factor
-efa=fa(r=R,nfactors=1,n.obs=88,fm="mle",rotate="none")
+efa=fa(r=R,nfactors=1,n.obs=88,fm="mle",rotate="none") # usándola estimacionpor máxima verosimilitud, debo pasarel número de observaciones 
 efa
 
 # Estadístico de prueba para 1 factor
-efa$STATISTIC
+efa$STATISTIC # para hacer pruebas de hip
 
 # De forma alternativa construimos el estadístico de prueba para un factor
 n=88;p=5;k=1
 
+
+# haciéndo las estimaciones
 Lambda=efa$loadings
 Psi=diag(efa$uniquenesses)
 Sigma=(Lambda%*%t(Lambda))+Psi
