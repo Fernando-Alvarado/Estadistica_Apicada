@@ -1,0 +1,107 @@
+---
+title: "Estudio_igraph"
+author: "Fernando Alvarado"
+date: "2025-03-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Ruta de los datos en caso de que requiera
+#setwd("C:/Users/ferna/Documents/Seminario Estadistica/EjercicioExtra1")
+
+#Cargamos nuestras librerías 
+library(ggplot2)
+library(dplyr)
+library(lmtest) # checar homocedasticidad  
+library(car) # checar linealidad
+library(nortest) #Checar normalidad
+
+
+
+
+#Extrayendo nuestra data
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Tarea_4/Data")
+
+data <- read.csv("./initech.csv")
+
+
+
+
+```
+
+
+
+```{r, echo=FALSE}
+summary(data)
+```
+
+Segun los datos en promedio un trabajador tiene 13 años de experiencia ganando en promedio 117,578 unidades.
+
+
+```{r, echo=FALSE}
+modelo <- lm(salary~ years,  data = data)
+
+
+ggplot(data, aes(x = years, y = salary)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Salario vs Años de Experiencia",
+       x = "Años de Experiencia",
+       y = "Salario") +
+  theme_minimal()
+
+```
+
+  Grafica que representa a nuestros datos junto con nuestro modelo de regresion lineal
+  
+
+### Verificando los supuestos de mi modelo
+
+
+#### Verificando linealidad
+
+```{r, echo=FALSE}
+crPlots(modelo)
+residualPlots(modelo, test = TRUE) #Test para verificar si el modelo es lineal o no H0 = La relacion entre el predictor y la respuesta e lina vs HA: La relacion no es lineal
+
+```
+Con estas graficas y la prueba de hipotesis que acabamos de hacer, podemos concluir que no hay evidencia estadistica que no indiue que nuestro modelo de regresion sea lineal, ya que el p-value es de 2.286e-07, por lo que se rechaza H0
+
+#### Verificando homoceasticidad 
+
+```{r, echo=FALSE}
+plot(modelo, 3)
+car::ncvTest(modelo)  #Ho, la variaza de los errores es contante va HA, la varianza no es contante
+lmtest::bptest(modelo) 
+```
+Con esta grafica y prueba podemos observar que se rechaza nuestro supues de homoceasticidad ya que el p-value de la prueba bptest es de 3.885e-05
+
+
+#### Vamos a checar si hay normalidad en nuestros datos
+
+```{r, echo=FALSE}
+qqPlot(residuals(modelo))
+
+ks.test(residuals(modelo), "pnorm", mean(residuals(modelo)), sd(residuals(modelo)))
+
+
+ad.test(residuals(modelo))
+
+```
+
+Con estas dos pruebas podemos observar que nuesto modelo de regresion se distribuye normal, ya que la prueba Kolmogorov-Smirnov, dio un p-value de 0.3074 y en la grafica podemos observar que nuestros puntos estan entonrno a la linea azu,
+
+
+```{r, echo=FALSE}
+dwtest(modelo)
+
+
+
+```
+
+Con esta preuba podemos concluir que tenemos evidencia estadistica de una autocorrelacion ya que el p-value de la prueba Durbin-Watson es de  0.0002496 y ademas que esta es una fuerte correlacion positiva ya que su coeficiente DW = 1.3313
+
+
+
