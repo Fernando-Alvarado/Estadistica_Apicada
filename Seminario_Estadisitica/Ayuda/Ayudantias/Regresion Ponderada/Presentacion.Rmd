@@ -1,0 +1,138 @@
+---
+title: "Presentando Resultados"
+author: "Seminario de Estadística 2025-2"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+date: "12/03/2025"
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+#Elegimos nuestra carpeta
+setwd("C:/Users/bortega/OneDrive - MLG.COM.MX/Escritorio/Seminario 2025-2/Ayudantias")
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(6.0, 5.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+```
+
+# Inferencia sobre las ventas de productos, a partir de su gasto en publicidad
+
+Se nos proporcionaron datos sobre la cantidad de ventas de productos, y su gasto en publicidad en televisión
+
+Se busca determinar si hay suficiente evidencia para afirmar que un mayor gasto en publicidad implica mayores ventas
+
+Comenzamos el análisis presentando los datos a continuación
+
+```{r Grafica, echo=FALSE, fig.cap="Observamos los datos de Ventas contra los gastso de publicidad"}
+#Cargamos los datos 
+df_ventas <- read.csv("Advertising.csv")
+
+#Presentamos los datos
+ggplot(data = df_ventas, aes(x=TV, y=sales))+
+  geom_point(color= "cadetblue4")+
+  labs(x = "Gasta en publicidad de Televisión", y = "Ventas del producto")
+```
+
+A partir de la Figura \@ref(fig:Grafica), podemos observar que parece existir una tendencia a que las ventas crezcan conforme aumentan los gastos en publicidad, a su vez podemos ver que tenemos algunos problemas con ajustar algún modelo, pues la linealidad no es algo tan preciso, además de que la varianza no parece ser constante, pues los puntos parecen ir aumentando la dispersión conforme aumenta el gasto en publicidad
+
+Derivado de lo anterior, tenemos como opciones utilizar múltiples modelos, tanto de regresión, como lineales generalizados, para intentar adaptar nuestros modelo de mejor manera a los datos
+
+Tras realizar múltiples pruebas, se lorgró determinar que el mejor modelo, fue un modelo de regresión lineal simple ponderado, esto se obtuvo a partir de la siguiente tabla:
+
+```{r TablaAIC}
+#Guardamos los datos
+data.frame("Tipo"=c("GLM","GLM","GLM","Regresión lineal", "Regresión lineal"),
+           "Info.Adicional1" = c("Familia:Gamma","Familia:Inversa Gaussina", "Familia:Gamma", "Y transfromada", "Ponderada"),
+           "Info.Adicional2" = c("Liga:\nInversa", "Liga:\nInversa", "Liga:\nLogaritmo", "Transformación: sales^(1/2)", "Peso:\n1/TV"), 
+           "Fórmula" = c("beta_0+beta_1TV", "beta_0+beta_1TV^(0.5)", "beta_0+beta_1ln(TV)","beta_0+beta_1TV^(1/3)","beta_0+beta_1TV^(0.3)"), 
+           "AIC" = c(1061.3, 972.6, 973.7, 998.5, 969.28))%>% 
+  #Volvemos tabla
+  kbl(booktabs = TRUE, align = "c") %>%
+    kable_styling(latex_options = c("striped","scale_down")) 
+
+```
+
+A partir de la anterior, y de la verificación supuestos que se encuentra en los chunks "Lin", "Hom" y "Norm", decidimos utilizar el modelo antes mencionado, pues no se encontró evidencia fuerte en contra de los mismos, además de ser el modelo con el menor AIC, además, gracias a lo obtenido en el chunk "PruebaF" se puede verificar, gracias a la prueba F asociada a la tabla ANOVA, que los gastos en publicidad sí afectan a las ventas en publicidad
+
+```{r Ajuste, include=FALSE}
+#Ajustamos nuestro modelo con el mínimo AIC
+fit <- lm(sales~I(TV^0.3), data = df_ventas, weights = 1/(TV))
+```
+
+```{r Lin, include=FALSE}
+# Presentamos nuestra gráfica de 
+plot(fit,1)
+
+#Además, contrastamos los valores de x con y
+ggplot(data = df_ventas, aes(x=TV^0.3, y=sales))+
+  geom_point(color= "cadetblue4")
+
+##No parece haber evidencia en contra de la linealidad 
+```
+
+```{r Hom, include=FALSE}
+#Realizamos pruebas de hipótesis
+#lmtest::bptest(fit_ventas)
+#Aquí no utilizamos la función bptest, porque no considera los pesos que añadimos
+car::ncvTest(fit)
+
+#Realizamos gráficas  
+plot(fit, 3)
+```
+
+```{r Norm, include=FALSE}
+#Para la normalidad
+
+#Presentamos la q-q plot
+plot(fit, 2)
+```
+
+```{r PruebaF, include=FALSE}
+summary(fit)
+```
+
+Dicho esto, se procedió a realizar una prueba de hipótesis para determinar si en efecto las ventas aumentan con los gastos en publicidad en TV. Para esto, recordemos que nuestro modelo se ajustó como
+$$\mathbb{E}[ventas]=\beta_0+\beta_1Gastos^{0.3}$$
+Por lo que, queremos verificar que si $Gastos_1>Gastos_2$, entonces $ventas_1>ventas_2$, tras realizar operaciones algebraicas, la prueba que se realizó fue de la forma 
+
+$$H_0:\beta_1\leq0\hspace{.25cm}vs.\hspace{.25cm}H_a:\beta_1>0$$
+Y se realizó la prueba de hipótesis correspondiente, la cual se puede encontrar en el chunk "PH", y cuyos resultados se encuentran a continuación
+```{r PH, echo=FALSE}
+#Definimos nuestra matriz K para la prueba
+K=matrix(c(0,1), ncol=2, nrow=1, byrow=TRUE)
+#Definimos nuestro vector m
+m=c(0)
+
+#Realizamos nuestra prueba de greater
+summary(glht(fit, linfct=K, rhs=m, alternative="greater"))
+```
+Y a partir de los resultados obtenidos, con una significancia de .05, podemos afirmar que las ventas sí aumentan conforme lo hace el gasto en publicidad en TV

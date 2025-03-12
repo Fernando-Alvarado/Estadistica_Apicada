@@ -1,0 +1,310 @@
+---
+title: "Regresión ponderada vs. GLM 2: La venganza"
+author: "Seminario de Estadística 2025-2"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+date: "12/03/2025"
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+#Elegimos nuestra carpeta
+setwd("C:/Users/bortega/OneDrive - MLG.COM.MX/Escritorio/Seminario 2025-2/Ayudantias")
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+```
+
+# Recordatorio
+Recordemos cómo eran nuestros datos, teníamos unos datos de ventas de productos contra su gasto en publicidad, viéndose de la siguiente forma
+
+```{r LeerDatos, echo=FALSE}
+#Cargamos nuestro datos
+df_ventas <- read.csv("Advertising.csv")
+#Graficamos nuestra variable
+ggplot(data = df_ventas, aes(x=TV, y=sales))+
+  geom_point(color= "cadetblue4")
+#Y además obtenemos información de los datos
+summary(df_ventas[,c(2,5)])
+```
+Y ya hemos descubierto que necesitamos de la regresión ponderada, ¿pero y cómo encontramos el valor de $w_i$ que necesitamos para regresión ponderada?
+
+Pues podemos hacer uso de muchos métodos e invenciones, sin embargo, podemos también hacer uso del poder de máquina para encontrar los valores que mejor nos ayuden en el modelo
+
+Para esto, recordemos que lo que buscamos son $w_i$ tales que $V(\varepsilon_i)=\frac{\sigma}{w_i}$, y ya con eso, podemos buscar, pues dado que las $w_i$ son constantes conocidas, en particular pueden ser $g(x_1,\cdots,x_p)$, es decir, una función de las covariables.
+
+Para este caso, recordemos que buscamos por la mejor transformación box-Tidwell que era $TV^{0.6}$, entonces, como vimos que la varianza aumenta con la misma $TV^{0.6}$, podemos en esta ocasión usarla como covariable y peso
+
+# RLM 3: Ahora es ponderada
+
+Una vez encontrado nuestro valor de TV, podemos realizar nuestra verificación de supuestos, en búsqueda de poder utilizar el modelo 
+
+```{r AjusteminAIC, echo=TRUE}
+#Guardamos nuestro modelo
+fit_pond <- lm(sales~I(TV^0.6), data = df_ventas, weights = 1/(TV^0.6))
+```
+
+## Linealidad
+
+```{r Lin, echo=TRUE}
+# Presentamos nuestra gráfica de 
+plot(fit_pond,1)
+#Hay que tener cuidado con car cuando usamos regresión ponderada (en pruebas de hipótesis)
+residualPlots(fit_pond)
+
+
+##No parece haber evidencia en contra de la linealidad 
+```
+
+## Homocedasticidad
+```{r Homo, echo=TRUE, fig.dim=c(5,4)}
+#Realizamos pruebas de hipótesis
+#lmtest::bptest(fit_ventas)
+#Aquí no utilizamos la función bptest, porque no considera los pesos que añadimos
+car::ncvTest(fit_pond)
+
+#Realizamos gráficas  
+plot(fit_pond, 3)
+```
+Podemos ver que finalmente pareciera que no hay problemas con la homocedasticidad
+
+## Normalidad
+Tras haber verificafo los supuestos anteriores
+
+```{r Normp, echo=TRUE, fig.dim=c(5,3.5)}
+#Presentamos la q-q plot
+plot(fit_pond, 2)
+```
+Finalmente, la normalidad no parece tener algún problema, por lo que nuestro modelo finalmente parece ser idóneo para trabajar
+
+Pero, ¿es este el mejor modelo?
+
+Para eso podemos utilizar lo mismo que hasta ahora, el AIC, procedemos a calcularlo, y es `r round(AIC(fit_pond),2)`
+
+Si comparamos con los valores obtenidos previamente, notamos que nuestro AIC es mayor que el que se obtuvo en clase, pues los menores estaban por debajo de 980, por lo que aún nos falta para poder considerar este como el mejor modelo 
+
+Pero entonces, ¿cómo buscamos un mejor modelo?
+Para eso haremos uso del poder de máquina, y buscaremos la combinación de datos que mejor AIC tenga
+
+## Mejorando el AIC del modelo
+
+Primero vamos a dejar fija la covariable $TV^{0.6}$, veamos si existe un mejor peso, 
+
+```{r BusquedaMap, echo = TRUE}
+# Primero vamos a buscar sólamente uno de los posibles pesos
+# Dado que la varianza aumenta con la x, podemos buscar un peso de la forma 1/(x^l), para alguna l>0
+posib_pot <- seq(.1,3,.1)
+
+# Entonces, nosotros simplemente aplicamos lo que ya conocemos, 
+#la función map, con una función que devuelva valores
+aic <- map(.x = posib_pot, .f= function(.x){
+  AIC(lm(sales~I(TV^0.6), data = df_ventas, weights = 1/(TV^.x)))
+})
+
+#Pero como es más fácil trabajar con vectores, y "AIC" es una lista, lo volvemos vector
+aic <- unlist(aic)
+
+#Buscamos el mínimo, y con ese trabajaremos a continuación
+#Sin embargo, guardaremos 3 diferentes opciones, para buscar el que mejor funcione
+elegida <- which.min(aic)
+elegida2 <- which.min(aic[-elegida])
+elegida3 <- which.min(aic[-elegida][-elegida2])
+
+potencia1 <- posib_pot[elegida]
+potencia2 <- posib_pot[-elegida][elegida2]
+potencia3 <- posib_pot[-elegida][-elegida2][elegida3]
+```
+
+```{r BusquedaSapply, echo = TRUE}
+#Ya definidas las búsquedas
+
+# Entonces, nosotros simplemente aplicamos lo que ya conocemos, la función map, pero en la función sapply
+
+AIC_s <- sapply(posib_pot, function(x, datos){
+  AIC(lm(sales~I(TV^0.6), data = datos, weights = 1/(TV^x)))
+}, datos = df_ventas)
+
+#No desempaquetamos
+
+#Buscamos el mínimo, y con ese trabajaremos a continuación
+#Sin embargo, guardaremos 3 diferentes opciones, para buscar el que mejor funcione
+elegida_s <- which.min(AIC_s)
+elegida2_s <- which.min(AIC_s[-elegida_s])
+elegida3_s <- which.min(AIC_s[-elegida_s][-elegida2_s])
+
+potencia1_s <- posib_pot[elegida_s]
+potencia2_s <- posib_pot[-elegida_s][elegida2_s]
+potencia3_s <- posib_pot[-elegida_s][-elegida2_s][elegida3_s]
+```
+
+En este caso, como podemos ver, ya utilizamos el más pequeño, que es `r potencia1_s`, por lo que no nos aporta nada volverlo a comprobar
+
+## Mejorando todo el modelo
+
+Hecho esto, ¿cómo encontramos un modelo mejor?
+Pues para esto podemos ahora buscar por todas las posibles combinaciones de covariables y pesos, en busca de un mejor modelo
+
+```{r BusquedaMap2, echo = TRUE}
+#Ya tenemos los posibles pesos 
+posib_pot <- seq(.1,3,.1)
+#Ahora, podemos ver por las posibles potencias de TV
+#Por la forma, podemos asumir que tendremos una potencia menor que 1
+posib_cov <- seq(.1,.9,.05)
+
+#Podemos usar la función map2 
+#(el problema es que map2 no realiza todas las combinaciones posibles de vectores)
+#Sólo realiza la función sobre aquellos que tienen mismo índice,
+#por lo que además deben ser del mismo largo, 
+
+#Para conseguir esto usaremos map para repetir uno (aunque también funciona sapply)
+posib_pot2 <- map(.x = posib_pot, .f= function(.x){
+  rep(.x, length(posib_cov))
+})
+
+#Aquí tenemos una lista con 30 entradas, siendo cada una un vector de 20 números, como todos son números, deshacemos la lista y queda un vector numércio
+posib_pot2 <- unlist(posib_pot2)
+
+#Y a su vez, repetimos las entradas de covariables 30 veces
+posib_cov2 <- rep(posib_cov,length(posib_pot))
+
+# Y listo, tenemos todas las posibles parejas existentes
+
+#Ahora guardamos los posibles AIC
+AIC2 <- map2(.x = posib_cov2, .y = posib_pot2, function(.x,.y){
+  AIC(lm(sales~I(TV^.x), data = df_ventas, weights = 1/(TV^.y)))
+})
+
+#Pero como es más fácil trabajar con vectores, y "AIC2" es una lista, lo volvemos vector
+AIC2 <- unlist(AIC2)
+
+#Buscamos el mínimo, y con ese trabajaremos a continuación
+#Sin embargo, guardaremos 3 diferentes opciones, para buscar el que mejor funcione
+Melegida <- which.min(AIC2)
+Melegida2 <- which.min(AIC2[-Melegida])
+Melegida3 <- which.min(AIC2[-Melegida][-Melegida2])
+
+peso1 <- posib_pot2[Melegida]
+peso2 <- posib_pot2[-Melegida][Melegida2]
+peso3 <- posib_pot2[-Melegida][-Melegida2][Melegida3]
+
+cov1 <- posib_cov2[Melegida]
+cov2 <- posib_cov2[-Melegida][Melegida2]
+cov3 <- posib_cov2[-Melegida][-Melegida2][Melegida3]
+
+```
+
+```{r BusquedaSapply2, echo = TRUE}
+#Ya teniendo los datos de posibilidades, los pegamos
+posibles <- data.frame(cbind(posib_cov2,posib_pot2))
+
+# Y listo, tenemos todas las posibles parejas existentes
+
+#Pero como es más fácil trabajar con vectores, y "AIC" es una lista, lo volvemos vector
+
+#Ahora guardamos los posibles AIC
+AIC2_s <- sapply(1:dim(posibles)[1], function(x,potencias,datos){
+  AIC(lm(sales~I(TV^potencias[x,1]), data = datos, weights = 1/(TV^potencias[x,2])))
+}, potencias = posibles, datos = df_ventas)
+
+#Buscamos el mínimo, y con ese trabajaremos a continuación
+#Sin embargo, guardaremos 3 diferentes opciones, para buscar el que mejor funcione
+Selegida <- which.min(AIC2_s)
+Selegida2 <- which.min(AIC2_s[-Selegida])
+Selegida3 <- which.min(AIC2_s[-Selegida][-Selegida2])
+
+valores1 <- posibles[Selegida,]
+valores2 <- posibles[-Selegida,][Selegida2,]
+valores3 <- posibles[-Selegida,][-Selegida2,][Selegida3,]
+
+```
+
+Probemos entonces con los datos obtenidos, podemos utilizar cualquiera de los dos métodos, y tenemos, con el mejor de los datos
+
+# RLM 4: Más ponderado que nunca
+Vamos a ajustar nuestro modelo con el que se obtuvo el menor de los AIC para poder verificar los supuestos, teniendo una potencia en la covariable de `r valores1[1,1]` y una potencia en el peso de `r valores1[1,2]`
+
+
+```{r minAIC, echo=TRUE}
+#Ajustamos nuestro modelo con el mínimo AIC
+fit_minaic <- lm(sales~I(TV^valores1[1,1]), data = df_ventas, weights = 1/(TV^valores1[1,2]))
+```
+
+## Linealidad
+
+```{r LinminAIC, echo=TRUE}
+# Presentamos nuestra gráfica de 
+plot(fit_minaic,1)
+##No parece haber evidencia en contra de la linealidad 
+
+#Además, contrastamos los valores de x con y
+ggplot(data = df_ventas, aes(x=TV^valores1[1,1], y=sales))+
+  geom_point(color= "cadetblue4")
+```
+
+## Homocedasticidad
+```{r HomominAIC, echo=TRUE}
+#Realizamos pruebas de hipótesis
+#lmtest::bptest(fit_ventas)
+#Aquí no utilizamos la función bptest, porque no considera los pesos que añadimos
+car::ncvTest(fit_minaic)
+
+#Realizamos gráficas  
+plot(fit_minaic, 3)
+```
+
+## Normalidad
+Tras haber verificafo los supuestos anteriores
+
+```{r NormpminAIC, echo=TRUE}
+#Para la normalidad
+#Presentamos la q-q plot
+plot(fit_minaic, 2)
+```
+Dada la alta cantidad de datos que tenemos, y que los cuantiles parecen corresponder bastante bien, podemos decir que no parece que nuestro modelo incumpla con la normalidad.
+
+Hecho esto, podemos proceder con el modelo que encontramos, además, cuenta con un AIC de `r round(AIC(fit_minaic),2)`, el cual, es inferior a aquellos que se encontraron durante la clase, y podemos proceder a trabajar con el ajuste
+
+Y además, podemos observar como se ajusta el modelo a nuestros datos
+```{r Modelo, echo=TRUE}
+#Guardamos una función del modelo
+modelo <- function(x){
+ coef(fit_minaic)[1]+coef(fit_minaic)[2]*x^(valores1[1,1]) 
+}
+
+#Graficamos nuestra variable y el modelo
+ggplot(data = df_ventas, aes(x=TV, y=sales))+
+  geom_point(color= "cadetblue4")+
+  geom_function(fun = modelo, colour = "red")
+
+```
+
+
