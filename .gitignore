@@ -1,1 +1,15 @@
 *.html
+
+*.csv
+*.pdf
+*.docx
+*.Rproj
+*.RData
+*.Rhistory
+*.Rmd
+*.excel
+*.png
+*.jpeg
+*.jpg
+*.svg
+
