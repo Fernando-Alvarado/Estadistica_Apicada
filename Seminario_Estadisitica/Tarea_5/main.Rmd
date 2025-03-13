@@ -1,0 +1,178 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+
+
+# Para purebas de hipotesis
+
+
+
+
+
+#Extrayendo nuestra data
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Tarea_4/Data")
+
+data <- read.csv("./initech.csv")
+
+
+
+
+```
+
+```{r}
+
+#Convirtiendo nuestro sumary a otro formato para poder trabajar mas facil con el 
+resumen <- as.data.frame(t(as.matrix(summary(data))))
+
+summary(data)
+```
+
+
+# Años de experiencia vs Salario 
+
+
+En este trabajo vamos a modelar los años de expericia vs el salario que percibe cada trabajador de la empresa, donde en una revision rapida de los datos observamos que el salrio maximo fue de: `r resumen$Freq[12]` y el minimo fue de `r resumen$Freq[2]`, donde el trabajador promedio ganaba: `r resumen$Freq[8]`, con una  media de `r resumen$Freq[7]` años de experiencia.
+
+
+```{r}
+ggplot(data, aes(y= salary, x = years))+
+  geom_point(color = "blue")
+```
+Esta grafica nos da una primera impresion de nuestros datos de de como se distribuyen.
+
+Usando  un modelo de regresion no se cumplian  supuestos, asi que ahora plantearesmo un modelo de regresion logistica, para ello nos guiaremos de una transformacion BoxTiwell para ver a que potencia se deben elevar los datos y los pesos.
+```{r}
+box <- boxTidwell(salary ~years, data = data) 
+#Ho No se necita una tranformacion
+#Ha El coeficiente de la transformacion de la variable es distinta de 0, se recomienda una transformacion 
+box
+```
+
+Con esta prueba de hipotesis concluimos que debemos hacer una transformacion en x de 1.83 en los datos para que pasen las pruebas de hipotesis y de paso que mejore nuestro AIC, para ello haremos una secuencia de numero para probar la transformacion en x y el peso que debe de tener nuestro modelo 
+
+```{r}
+#Funciones a usar ---------------------
+
+minimo = function(list, n, exit){#
+ if(n==0 || length(list)==0){
+    return(exit)
+ }else {
+    exit = c(exit, min(list))  #Haciendo nuestro vector de salida con los numero mas pequeños
+    list = list[list!=min(list)] #Quitando el numero minimo de la lista, aunque esten repetidos
+    return(minimo(list, n-1, exit))
+    
+ }
+}
+
+#-----------------------
+
+#Secuancia que vamos a usar para hacer nuestra malla
+
+posib_pot <- seq(.1,4,.1)
+posib_cov <- seq(.1,3,.05)
+
+#Hace todas las combinaciones
+combinaciones <- expand.grid(x = posib_pot, y = posib_cov)
+
+# Aplicar la función a todas las combinaciones
+AIC_Mods <- apply(expand.grid(posib_pot, posib_cov), 1, function(par) {
+  AIC(lm(salary ~ I(years^par[2]), data = data, weights = 1 / I(years^par[1])))
+})
+
+
+# Haciendo un Df, para poder trabajar con nuestros modelos
+Resultado_Modelos <- data.frame(combinaciones, AIC = unlist(AIC_Mods))
+
+
+minimos <- minimo(Resultado_Modelos$AIC, 3, c()) #Funcion para cehar los minos AICs que tenemos en nuestro modelo
+
+#Seleccionando las variables para neustro modelo 
+
+n <- 5  # Cambia según lo que necesites
+
+# Ordenar los valores de AIC y seleccionar los n más pequeños
+indices_minimos <- order(Resultado_Modelos$AIC)[1:n]
+
+# Crear un data frame con los n valores mínimos de AIC y sus respectivos parámetros
+df_minimos <- Resultado_Modelos[indices_minimos, ]
+
+
+ 
+
+
+```
+
+Checando los 3 modelos que tengan el minimo AIC: `r minimos`
+
+
+Imprimiendo nuestros 5 mejores modelo donde x es el peso de la regresion y y, la pontencia a la que debe ser elevada x
+```{r}
+
+print(df_minimos)   #ya con esto podemos hacer nuestro modelo nuevo
+
+```
+
+#### Modelo propuesto
+
+```{r}
+modelo1 <- lm(salary ~ I(years^df_minimos$x[2]), data = data, weights = 1 / I(years^df_minimos$x[1]))
+
+
+# 1. Crear las predicciones usando el modelo ponderado
+data$prediccion <- predict(modelo1, newdata = data)
+
+# 2. Graficar los puntos originales y la línea ajustada manualmente
+ggplot(data, aes(x = years, y = salary)) +
+  geom_point() +  # Puntos reales
+  geom_line(aes(y = prediccion), color = "red", size = 1) +  # Línea de regresión ponderada
+  labs(title = "Salario vs Años de Experiencia (Regresión Ponderada)",
+       x = "Años de Experiencia",
+       y = "Salario") +
+  theme_minimal()
+
+
+```
+Con esta grafica podemos ver que nuestro model ........................................
+
+```{r}
+dsfdfd
+dfsfd
+sdfsdfsdf
+
+```
+
+
+
+
