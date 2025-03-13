@@ -17,7 +17,7 @@ rm(list = ls(all.names = TRUE))
 
 
 #Elegimos nuestra carpeta
-setwd("C:/Users/bortega/OneDrive - MLG.COM.MX/Escritorio/Seminario 2025-2/Ayudantias")
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Ayuda/Ayudantias/Regresion Ponderada")
 
 # Configuración global de los bloques de código (chunk's)
 knitr::opts_chunk$set(
@@ -142,6 +142,11 @@ elegida3 <- which.min(aic[-elegida][-elegida2])
 potencia1 <- posib_pot[elegida]
 potencia2 <- posib_pot[-elegida][elegida2]
 potencia3 <- posib_pot[-elegida][-elegida2][elegida3]
+
+
+
+print(elegida)
+print(potencia1)
 ```
 
 ```{r BusquedaSapply, echo = TRUE}
@@ -220,6 +225,11 @@ cov1 <- posib_cov2[Melegida]
 cov2 <- posib_cov2[-Melegida][Melegida2]
 cov3 <- posib_cov2[-Melegida][-Melegida2][Melegida3]
 
+
+print(peso1)
+
+print(cov1)
+
 ```
 
 ```{r BusquedaSapply2, echo = TRUE}
@@ -245,7 +255,81 @@ valores1 <- posibles[Selegida,]
 valores2 <- posibles[-Selegida,][Selegida2,]
 valores3 <- posibles[-Selegida,][-Selegida2,][Selegida3,]
 
+print(head(AIC2_s))
+
+print(Selegida)
+
+print(min(AIC2_s))
+print(valores1)
+
+
+
 ```
+
+
+```{r}
+#Comparacion con mi codigo 
+
+minimo = function(list, n, exit){#
+ if(n==0 || length(list)==0){
+    return(exit)
+ }else {
+    exit = c(exit, min(list))  #Haciendo nuestro vector de salida con los numero mas pequeños
+    list = list[list!=min(list)] #Quitando el numero minimo de la lista, aunque esten repetidos
+    return(minimo(list, n-1, exit))
+    
+ }
+}
+
+formato <- function(lista){
+    listaSal <- unlist(lista)
+    return(list(listaSal))
+}
+
+
+#-----------------------
+
+
+#Hace todas las combinaciones
+combinaciones <- expand.grid(x = posib_pot, y = posib_cov)
+
+
+# Aplicar la función a todas las combinaciones
+AIC_Mods <- apply(expand.grid(posib_pot, posib_cov), 1, function(par) {
+  AIC(lm(sales~I(TV^par[2]), data = df_ventas, weights = 1 / I(TV^par[1])))
+})
+
+salidaAic <- formato(AIC_Mods) #Tenenmos 31 * 21 = 651
+
+# Crear un data frame correctamente
+Resultado_Modelos <- data.frame(combinaciones, AIC = unlist(salidaAic))
+
+
+head(Resultado_Modelos)
+
+minimos <- minimo(Resultado_Modelos$AIC, 4, c())
+
+
+
+```
+
+Checando los que tengan el minimo AIC
+```{r}
+#Checando las pocisiones 
+ca = 1
+
+posicion <- which(Resultado_Modelos$AIC == minimos[ca])
+
+# Obtener los valores de 'x' y 'y' correspondientes al mejor modelo
+mejor_x <- Resultado_Modelos$x[posicion]
+mejor_y <- Resultado_Modelos$y[posicion]
+
+print(paste(mejor_x, mejor_y, minimos[ca]))
+
+```
+
+
+
 
 Probemos entonces con los datos obtenidos, podemos utilizar cualquiera de los dos métodos, y tenemos, con el mejor de los datos
 
