@@ -28,16 +28,13 @@ formato <- function(lista){
 
 #print(minimo(prueba[[1]], 3, c()))
 
-posib_pot <- seq(.1,3,.1)
-#Ahora, podemos ver por las posibles potencias de TV
-#Por la forma, podemos asumir que tendremos una potencia menor que 1
-posib_cov <- seq(.1,.9,.05)
-
 
 
 seq1 <- c(1, 2, 3, 4)   # 4 elementos
 seq2 <- c(10, 20)       # 2 elementos
 
-combinaciones <- lapply(posib_pot, function(x) (x + posib_cov)) # Vamos a hacer la funcion que haga las combinaciones de los elementos dados
+#combinaciones <- lapply(posib_pot, function(x) (x + posib_cov)) # Vamos a hacer la funcion que haga las combinaciones de los elementos dados
 
+combinaciones <- expand.grid(pot = seq1, cov = seq2) # Hace todas las combinaciones posibles de los elementos dados
 
+print(combinaciones)
