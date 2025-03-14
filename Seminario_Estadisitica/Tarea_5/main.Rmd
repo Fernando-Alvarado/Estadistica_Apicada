@@ -33,6 +33,8 @@ library(multcomp)   # Para pruebas de hipótesis
 library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
 library(broom)      # Para obtener los residuales estandarizados
 library(purrr)      # Para la función map y map2
+library(lmtest )    #Checar homoceasticidad
+library(nortest )
 
 
 # Para purebas de hipotesis
@@ -51,38 +53,41 @@ data <- read.csv("./initech.csv")
 
 ```
 
-```{r}
-
+```{r summary}
 #Convirtiendo nuestro sumary a otro formato para poder trabajar mas facil con el 
 resumen <- as.data.frame(t(as.matrix(summary(data))))
-
-summary(data)
 ```
 
 
 # Años de experiencia vs Salario 
 
 
-En este trabajo vamos a modelar los años de expericia vs el salario que percibe cada trabajador de la empresa, donde en una revision rapida de los datos observamos que el salrio maximo fue de: `r resumen$Freq[12]` y el minimo fue de `r resumen$Freq[2]`, donde el trabajador promedio ganaba: `r resumen$Freq[8]`, con una  media de `r resumen$Freq[7]` años de experiencia.
+En este trabajo, modelaremos la relación entre los años de experiencia y el salario que percibe cada trabajador de la empresa. En una revisión rápida de los datos, observamos que el salario máximo fue de: `r resumen$Freq[12]` , mientras que el mínimo fue de: `r resumen$Freq[2]`. Además, el trabajador promedio ganaba: `r resumen$Freq[8]`, con una media de: `r resumen$Freq[7]` años de experiencia.
 
 
-```{r}
+
+```{r Grafica_Datos}
 ggplot(data, aes(y= salary, x = years))+
   geom_point(color = "blue")
 ```
-Esta grafica nos da una primera impresion de nuestros datos de de como se distribuyen.
+__Esta gráfica nos brinda una primera impresión sobre la distribución de nuestros datos.__
 
-Usando  un modelo de regresion no se cumplian  supuestos, asi que ahora plantearesmo un modelo de regresion logistica, para ello nos guiaremos de una transformacion BoxTiwell para ver a que potencia se deben elevar los datos y los pesos.
-```{r}
+
+Al aplicar un modelo de regresión, observamos que no se cumplían los supuestos requeridos, por lo que plantearemos un modelo de regresión logística. Para definir la transformación adecuada, utilizaremos la metodología de Box-Tidwell, que nos permitirá determinar la potencia óptima para los datos y los pesos, concluyendo que la variable x debe elevarse a la potencia de 1.83.
+
+
+```{r Prueba_box,  results="hide"}
 box <- boxTidwell(salary ~years, data = data) 
 #Ho No se necita una tranformacion
 #Ha El coeficiente de la transformacion de la variable es distinta de 0, se recomienda una transformacion 
 box
 ```
 
-Con esta prueba de hipotesis concluimos que debemos hacer una transformacion en x de 1.83 en los datos para que pasen las pruebas de hipotesis y de paso que mejore nuestro AIC, para ello haremos una secuencia de numero para probar la transformacion en x y el peso que debe de tener nuestro modelo 
 
-```{r}
+Con esta prueba de hipótesis, concluimos que es necesario aplicar una transformación a x con un exponente de 1.83 para que los datos cumplan con los supuestos y mejoren nuestro AIC. Para ello, generaremos una secuencia de valores para probar distintas transformaciones en x y determinar el peso óptimo para nuestro modelo.
+
+
+```{r Algoritmo_minimos}
 #Funciones a usar ---------------------
 
 minimo = function(list, n, exit){#
@@ -100,8 +105,8 @@ minimo = function(list, n, exit){#
 
 #Secuancia que vamos a usar para hacer nuestra malla
 
-posib_pot <- seq(.1,4,.1)
-posib_cov <- seq(.1,3,.05)
+posib_pot <- seq(.1,2.5,.05)
+posib_cov <- seq(1,2.5,.05)
 
 #Hace todas las combinaciones
 combinaciones <- expand.grid(x = posib_pot, y = posib_cov)
@@ -134,20 +139,31 @@ df_minimos <- Resultado_Modelos[indices_minimos, ]
 
 ```
 
-Checando los 3 modelos que tengan el minimo AIC: `r minimos`
+#### Revisando los tres modelos con el menor AIC:  `r minimos`.
+
+A continuación, imprimimos nuestros cinco mejores modelos, donde x representa el peso de la regresión y y la potencia a la que debe elevarse x.
 
 
-Imprimiendo nuestros 5 mejores modelo donde x es el peso de la regresion y y, la pontencia a la que debe ser elevada x
 ```{r}
 
-print(df_minimos)   #ya con esto podemos hacer nuestro modelo nuevo
+library(knitr)
+
+
+
+# Imprimir tabla con kable()
+kable(df_minimos, caption = "Resultados del modelo con menor AIC")
+
 
 ```
+ __Donde Y representa las potencias y X representa las covarianzas.__
 
 #### Modelo propuesto
 
-```{r}
-modelo1 <- lm(salary ~ I(years^df_minimos$x[2]), data = data, weights = 1 / I(years^df_minimos$x[1]))
+```{r Grafica_Modelos}
+modelo1 <- lm(salary ~ I(years^df_minimos$y[1]), data = data, weights = 1 / I(years^df_minimos$x[1]))
+
+
+
 
 
 # 1. Crear las predicciones usando el modelo ponderado
@@ -156,6 +172,7 @@ data$prediccion <- predict(modelo1, newdata = data)
 # 2. Graficar los puntos originales y la línea ajustada manualmente
 ggplot(data, aes(x = years, y = salary)) +
   geom_point() +  # Puntos reales
+   geom_smooth(method = "lm", se = FALSE, color = "green") +
   geom_line(aes(y = prediccion), color = "red", size = 1) +  # Línea de regresión ponderada
   labs(title = "Salario vs Años de Experiencia (Regresión Ponderada)",
        x = "Años de Experiencia",
@@ -164,15 +181,64 @@ ggplot(data, aes(x = years, y = salary)) +
 
 
 ```
-Con esta grafica podemos ver que nuestro model ........................................
+__En esta gráfica, podemos observar que nuestro modelo de regresión logística (línea roja) se ajusta mejor a los datos y los describe con mayor precisión en comparación con la recta de regresión (línea verde).__
 
-```{r}
-dsfdfd
-dfsfd
-sdfsdfsdf
+
+
+
+## Verifiquemos si nuestra regresion ponderada pasa los supuestos:
+
+
+#### Verificando linealidad 
+
+```{r, echo=FALSE,  results="hide"}
+crPlots(modelo1)
+residualPlots(modelo1, test = TRUE, plot = FALSE) #Test para verificar si el modelo es lineal o no H0 = La relacion entre el predictor y la respuesta e lina vs HA: La relacion no es lineal
 
 ```
 
+
+Usando una prueba de hipótesis y una gráfica del paquete car, podemos concluir que existe suficiente evidencia estadística para afirmar la linealidad, con un p-value de 0.426.
+
+
+
+#### Verificando homoceasticidad 
+
+```{r, echo=FALSE,  results="hide"}
+plot(modelo1, 3)
+car::ncvTest(modelo1)  #Ho, la variaza de los errores es contante va HA, la varianza no es contante
+#lmtest::bptest(modelo1) 
+```
+
+Usando la librería car y la gráfica generada en R, podemos concluir que existe suficiente evidencia estadística para afirmar la homocedasticidad en nuestros datos, con un p-value de 0.41787.
+
+
+
+
+#### Vamos a checar si hay normalidad en nuestros datos
+
+```{r, echo=FALSE,  results="hide"}
+qqPlot(residuals(modelo1))
+
+ks.test(residuals(modelo1), "pnorm", mean(residuals(modelo1)), sd(residuals(modelo1)))
+
+
+#ad.test(residuals(modelo1))
+
+```
+Usando la prueba de hipótesis de la librería nortest, podemos concluir que los datos siguen una distribución normal, con un p-value de 0.3856.
+
+
+
+
+#### Autocorrelación en los residuos
+
+```{r,  results="hide"}
+
+bgtest(modelo1)
+```
+
+Con una prueba Breusch-Godfrey, podemos concluir que existe suficiente evidencia estadística para verificar la autocorrelación de residuos en modelos de regresión ponderada, con un p-value de 0.2302.
 
 
 
