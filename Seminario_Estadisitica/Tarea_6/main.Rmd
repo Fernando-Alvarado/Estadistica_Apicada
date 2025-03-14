@@ -1,0 +1,142 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+library(lmtest )    #Checar homoceasticidad
+library(nortest )
+
+
+# Para purebas de hipotesis
+
+
+
+
+
+#Extrayendo nuestra data
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Tarea_4/Data")
+
+data <- read.csv("./initech.csv")
+
+
+
+
+```
+
+
+```{r summary}
+#Convirtiendo nuestro sumary a otro formato para poder trabajar mas facil con el 
+resumen <- as.data.frame(t(as.matrix(summary(data))))
+```
+
+
+# Años de experiencia vs Salario 
+
+
+En este trabajo, modelaremos la relación entre los años de experiencia y el salario que percibe cada trabajador de la empresa. En una revisión rápida de los datos, observamos que el salario máximo fue de: `r resumen$Freq[12]` , mientras que el mínimo fue de: `r resumen$Freq[2]`. Además, el trabajador promedio ganaba: `r resumen$Freq[8]`, con una media de: `r resumen$Freq[7]` años de experiencia.
+
+
+
+```{r Grafica_Datos}
+ggplot(data, aes(y= salary, x = years))+
+  geom_point(color = "blue")
+```
+__Esta gráfica nos brinda una primera impresión sobre la distribución de nuestros datos.__
+
+
+Del reporte anterio el modelo de regresion logistica, nos quedo  con la varieable years elevada  a 1.75, con una covarianza (peso) de 1.4
+
+
+```{r Grafica_Modelos}
+#  Regresion Ponderada
+modelo <- lm(salary ~ I(years^1.75), data = data, weights = 1 / I(years^1.4))
+
+# Modelo Gamma propuesto
+modelo_gamma <- glm(salary ~ years, data = data, family = Gamma(link = "log"))
+
+# 1. Crear predicciones usando ambos modelos
+data$prediccion_lm <- predict(modelo, newdata = data)         # Predicción modelo lineal
+data$prediccion_gamma <- predict(modelo_gamma, newdata = data, type = "response")  # Predicción modelo gamma
+
+# 2. Graficar los datos originales y ambas líneas ajustadas
+ggplot(data, aes(x = years, y = salary)) +
+  geom_point(color = "blue") +  # Puntos originales
+  geom_line(aes(y = prediccion_lm), color = "red", size = 1.3) +  # Línea de regresión ponderada
+  geom_line(aes(y = prediccion_gamma), color = "green", size = 1) +  # Línea del modelo Gamma
+  labs(title = "Salario vs Años de Experiencia",
+       subtitle = "Comparación de Modelo Lineal Ponderado vs Modelo Gamma",
+       x = "Años de Experiencia", y = "Salario") +
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
