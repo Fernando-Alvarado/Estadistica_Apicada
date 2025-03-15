@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #Ruta de los datos en caso de que requiera
 #setwd("C:/Users/ferna/Documents/Seminario Estadistica/EjercicioExtra1")
 
+
+
 #Cargamos nuestras librerías 
 library(ggplot2)
 library(dplyr)

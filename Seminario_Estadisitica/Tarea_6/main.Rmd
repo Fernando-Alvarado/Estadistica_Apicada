@@ -84,29 +84,123 @@ modelo <- lm(salary ~ I(years^1.75), data = data, weights = 1 / I(years^1.4))
 # Modelo Gamma propuesto
 modelo_gamma <- glm(salary ~ years, data = data, family = Gamma(link = "log"))
 
-# 1. Crear predicciones usando ambos modelos
-data$prediccion_lm <- predict(modelo, newdata = data)         # Predicción modelo lineal
-data$prediccion_gamma <- predict(modelo_gamma, newdata = data, type = "response")  # Predicción modelo gamma
+# Creando predicciones de ambos modelos para poder hacer las graficas 
+data$prediccion_lm <- predict(modelo, newdata = data)         
+data$prediccion_gamma <- predict(modelo_gamma, newdata = data, type = "response")
 
-# 2. Graficar los datos originales y ambas líneas ajustadas
+# Graficar los datos originales y ambas líneas ajustadas
 ggplot(data, aes(x = years, y = salary)) +
-  geom_point(color = "blue") +  # Puntos originales
+  geom_point(color = "black") +  
   geom_line(aes(y = prediccion_lm), color = "red", size = 1.3) +  # Línea de regresión ponderada
-  geom_line(aes(y = prediccion_gamma), color = "green", size = 1) +  # Línea del modelo Gamma
+  geom_line(aes(y = prediccion_gamma), color = "green", size = 1.1) +  # Línea del modelo Gamma
   labs(title = "Salario vs Años de Experiencia",
-       subtitle = "Comparación de Modelo Lineal Ponderado vs Modelo Gamma",
+       subtitle = "Comparación del Modedelo de regresion ponderada vs Modelo Gamma",
        x = "Años de Experiencia", y = "Salario") +
   theme_minimal()
 
 ```
+__En esta grafica podemos observar la comparacion de un modelo de regresion ponderada vs un modelo lineal generalizado Gamma con funcion lija logaritmica__
+
+
+### Elección del Modelo
++ El modelo de regresión ponderada, su exponente y su covarianza fueron elegidos del reporte pasado, ya que era el que tenía el menor AIC entre los comparados y cumplía con los supuestos de regresión.
+
++ El modelo lineal generalizado se eligió porque ambas variables, salario y años de experiencia, son continuas. La función de enlace seleccionada fue la (aquí especifica la función, por ejemplo, "logarítmica" o "identidad"), ya que facilita el análisis y se ajusta mejor a los datos.
+
+
+
+### Supuestos del Modelo
++ El modelo de regresión ponderada cumplió todos los supuestos en el reporte pasado, por lo que solo nos enfocaremos en el modelo gamma.
 
 
 
 
+#### Verifiquemos el modelo GLM Gamma:
+
+
+##### Verificando linealidad 
+
+```{r, echo=FALSE,  results="hide"}
+crPlots(modelo_gamma)
+residualPlots(modelo_gamma, test = TRUE, plot = FALSE) #Test para verificar si el modelo es lineal o no H0 = La relacion entre el predictor y la respuesta e lina vs HA: La relacion no es lineal
+
+```
+
+
+Usando una prueba de hipótesis y una gráfica del paquete car, podemos concluir que existe suficiente evidencia estadística para afirmar la linealidad, con un p-value de 0.882.
+
+
+
+##### Verificando homoceasticidad 
+
+```{r, echo=FALSE,  results="hide"}
+plot(modelo_gamma, 3)
+#car::ncvTest(modelo_gamma)  #Ho, la variaza de los errores es contante va HA, la varianza no es contante
+lmtest::bptest(modelo_gamma) 
+```
+
+Usando la librería car y la gráfica generada en R, podemos concluir que existe suficiente evidencia estadística para rechazar la homocedasticidad en nuestros datos, con un p-value de 3.885e-05.
 
 
 
 
+##### Vamos a checar si hay normalidad en nuestros datos
+
+```{r, echo=FALSE,  results="hide"}
+qqPlot(residuals(modelo_gamma))
+
+#ks.test(residuals(modelo1), "pnorm", mean(residuals(modelo1)), sd(residuals(modelo1)))
+
+
+ad.test(residuals(modelo_gamma))
+
+```
+Usando la prueba de hipótesis de la librería nortest, podemos concluir que los datos siguen una distribución normal, con un p-value de 0.2454.
+
+
+
+
+##### Autocorrelación en los residuos
+
+```{r,  results="hide"}
+
+bgtest(modelo_gamma)
+```
+
+Con una prueba Breusch-Godfrey, podemos concluir que existe suficiente evidencia estadística para rechazar la autocorrelación de residuos en modelos de regresión ponderada, con un p-value de 0.003727.
+
+
+
+
+De esto podemos concluir que no se cumplen los supuestos de homoceasticidad y autocorrelacion de residuos.
+  
+
+### Interpretando los coeficientes de nuestro modelo 
+
+
+
+Modelo: __salary ~ I(years^1.75), data = data, weights = 1/I(years^1.4))__
+
+```{r}
+ cat(sprintf("Intercepto: %.4f\nCoeficiente de years: %.4f\n", 
+            coef(modelo)[1], coef(modelo)[2]))
+```
+
+Modelo:  __salary ~ years, family = Gamma(link = "log"), data = data)__
+
+```{r}
+
+cat(sprintf("Intercepto: %.4f\nCoeficiente de years: %.4f\n", 
+            coef(modelo_gamma)[1], coef(modelo_gamma)[2]))
+```
+
+En ambos casos, como los exponentes del primer modelo son mayores que uno y en el segundo modelo ambas funciones son crecientes, si la variable salario aumenta, entonces la variable años de experiencia también crecerá. Además, podemos observar que en ambos modelos los coeficientes son positivos.
+
+
+
+### Comparando AIC de los modelos
+
+Veamos de manera rapida que modelo seria mejor, el modelo de regresion ponderada tiene un AIC de: `r AIC(modelo)`, mientas que nuestro MLG Gamma, tiene un AIC de: `r AIC(modelo_gamma)`
 
 
 
