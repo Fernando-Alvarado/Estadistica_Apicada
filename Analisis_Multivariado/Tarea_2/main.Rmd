@@ -1,0 +1,54 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+library(lmtest )    #Checar homoceasticidad
+library(nortest )
+
+
+# Para purebas de hipotesis
+
+
+
+
+
+#Extrayendo nuestra data
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Tarea_4/Data")
+
+data <- read.csv("./initech.csv")
+
+
+
+
+```
