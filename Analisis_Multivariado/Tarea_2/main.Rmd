@@ -23,32 +23,446 @@ knitr::opts_chunk$set(
 )
 
 
+# Librerías para manipulación de datos y análisis estadístico
+library(dplyr)       # Manejo de datos
+library(kableExtra)  # Mejor manejo de tablas
+library(GGally)      # Análisis descriptivo fácil
+library(multcomp)    # Pruebas de hipótesis
+library(broom)       # Residuales estandarizados y modelos de regresión
+library(purrr)       # Funciones map y map2
+library(lmtest)      # Pruebas de hipótesis y homocedasticidad
+library(nortest)     # Pruebas de normalidad
+library(car)         # Diagnóstico de modelos de regresión
+library(MVN)         # Multinormalidad
+library(ICSNP)       # Pruebas de hipótesis Hotelling
+library(here)        # Manejo de rutas de archivos
+library(MASS)  # Para distribuciones multivariadas
+library(Hotelling)  # Para pruebas de Hotelling
+library(ICSNP)      #Pureba t hotelling y multivariado 
 
-# Librerías
-library(dplyr)      # Para el manejo de datos
-library(ggplot2)    # Para realizar gráficas
-library(kableExtra) # Para un mejor manejo de tablas
-library(GGally)     # Para realizar análisis descriptivo fácilmente
-library(multcomp)   # Para pruebas de hipótesis
-library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
-library(broom)      # Para obtener los residuales estandarizados
-library(purrr)      # Para la función map y map2
-library(lmtest )    #Checar homoceasticidad
-library(nortest )
-
-
-# Para purebas de hipotesis
+# Librerías para visualización de datos
+library(ggplot2)     # Gráficos
+library(ggthemes)    # Temas para ggplot2
+library(scatterplot3d) # Gráficos 3D
+#library(expn)        # Gráficos exploratorios
+library(plotly)      # Gráficos interactivos
+library(gridExtra)   # Mostrar múltiples gráficos
 
 
 
 
-
-#Extrayendo nuestra data
-setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Tarea_4/Data")
-
-data <- read.csv("./initech.csv")
 
 
 
 
 ```
+
+```{r Data}
+#Extrayendo nuestra data
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_2/Data")
+
+datos <- read.table("./cork.txt", header=TRUE, sep=" ", fileEncoding="UTF-8")
+datosWine <- read.table("./wine.txt", header=TRUE, sep=",", fileEncoding="UTF-8")
+
+
+
+```
+
+
+
+# Ejercicio 8 
+
+### Inciso i)
+
+
+Algoritmo para simular nuestra urna y el juego de extraer una pelota al azar, regresando después una pelota adicional del mismo color.
+
+```{r algoritomo, echo=TRUE}
+
+#Definamos a nuestra urna
+
+urna <- function(num_colores, vec_numero){
+    #num_colores: numero de bolas de diferente color que tendremos en nuestra urna
+    #vec_numero: vector con el numero de bolas de cada color
+    pelotas <- lapply(1:num_colores, function(i) rep(i, times = vec_numero[i]))
+    return(sample(unlist(pelotas))) #Regresamos una muestra aleatoria de pelotas
+}
+
+
+juego <- function(N, muestra){
+    #N: numero de veces que se repetira el juego de la urna
+    #muestra: muestra de nuestra urna
+    pelotas <- lapply(1:N, function(i) {
+        num_aleatorio <- sample(1:length(muestra), 1) #Escogemos un numero aleatorio
+        muestra = c(muestra, muestra[num_aleatorio]) #Agregamos una pelota a la urna
+    })
+    return(sample(unlist(pelotas)))
+  
+}
+
+
+
+```
+
+
+```{r Parametros}
+
+
+K = 3 #Numero de colores que trendra nuestra urna 
+
+alpha = c(2,5,1) #Numero de vesces que aparecera cada color en la urna
+
+N_1 = 1000 # Veces qu haremos nuestra simulacion 
+
+df1 <- data.frame(pelotas = juego(N_1, urna(K, alpha)))
+
+
+```
+
+
+
+
+```{r}
+grafica_urna <- function(n,df){
+  ggplot(df, aes(x = pelotas)) +
+     geom_histogram(binwidth = 1, fill = "#1a5276", color = "black") + 
+     theme_minimal() + 
+     labs(title = paste("Distribucion de pelotas en la urna"), subtitle = paste(n, " repeticiones"), x = "Pelotas", y = "Frecuencia")
+}
+
+grafica_urna(N_1, df1)
+
+```
+
+Histograma de frecuencias del juego en nuestra urna.
+
+
+
+### Inciso ii)
+
+```{r}
+dirichlet_gamma <- function(params, scale, N) {
+  dirichlet_samples <- list()
+  
+  for (i in 1:N) {
+    sample <- sapply(params, function(a) rgamma(1, shape = a, scale = scale))
+    sample <- sample / sum(sample)
+    dirichlet_samples[[i]] <- sample
+  }
+  
+  D <- do.call(rbind, dirichlet_samples)
+  medias <- colMeans(D)
+  covarianza <- cov(D)
+  
+  return(list(medias = medias, covarianza = covarianza))
+}
+
+# Ejemplo de uso
+result <- dirichlet_gamma(c(2, 5, 1), 1, 1000)
+
+
+
+medias_df <- data.frame(Variable = paste0("Var", 1:length(result$medias)), 
+                        Media = result$medias)
+
+# Crear un dataframe con la matriz de covarianza y de medias 
+covarianza_df <- as.data.frame(result$covarianza)
+colnames(covarianza_df) <- paste0("Variable ", 1:ncol(covarianza_df))
+rownames(covarianza_df) <- paste0("Variable ", 1:nrow(covarianza_df))
+
+
+
+
+
+
+```
+
+
+```{r}
+kable(medias_df, format = "html", caption = "Medias de la distribución") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+Medias de nuestras gammas simuladas con alphas = (2,5,1).
+
+
+
+```{r}
+kable(covarianza_df, format = "html", caption = "Matriz de Covarianza") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+Matriz de covarianza de nuestras variables aleatorias gamma simuladas.
+
+
+### Incico iii)
+
+
+```{r}
+
+
+# Definir las funciones necesarias (se asume que dirichlet_gamma() ya está definida)
+polya_statistics <- function(params, scale, N) {
+  dirichlet_gamma(params, scale, N)  # Se asume que devuelve una lista con medias y covarianza
+}
+
+# Generar datos
+p1 <- polya_statistics(c(2, 5, 1), 1, 1000)
+covp1 <- p1$covarianza
+d1 <- dirichlet_gamma(c(2, 5, 1), 1, 1000)
+covd1 <- d1$covarianza
+
+# Calcular errores
+E <- c(2, 5, 1) / sum(c(2, 5, 1))  # Valor esperado
+COV <- covp1  # Supongamos que el valor teórico es la covarianza de Polya
+
+error_p1 <- sum(abs(p1$medias - E) / E)
+error_covp1 <- sum(abs(covp1 - COV) / COV)
+
+error_d1 <- sum(abs(d1$medias - E) / E)
+error_covd1 <- sum(abs(covd1 - COV) / COV)
+
+# Crear data frame para graficar
+df_errors <- data.frame(
+  Method = rep(c("Polya N=1000", "Gammas N=1000"), 2),
+  Error_Type = rep(c("Mean Error", "Covariance Error"), each = 2),
+  Value = c(error_p1, error_d1, error_covp1, error_covd1)
+)
+
+colores_personalizados <- c("Gammas N=1000" = "#0e6655", "Polya N=1000" = "#1a5276")
+
+
+# Graficar el error de la media
+plot_mean_error <- ggplot(df_errors[df_errors$Error_Type == "Mean Error", ], aes(x = Method, y = Value, fill = Method)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean Error", x = "", y = "Error") +
+  theme_minimal() +
+  theme(legend.position = "none")+
+   scale_fill_manual(values = colores_personalizados)
+
+# Graficar el error de la covarianza
+plot_cov_error <- ggplot(df_errors[df_errors$Error_Type == "Covariance Error", ], aes(x = Method, y = Value, fill = Method)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Covariance Error", x = "", y = "Error") +
+  theme_minimal() +
+  theme(legend.position = "none")+
+   scale_fill_manual(values = colores_personalizados)
+
+# Mostrar ambos gráficos en una sola figura
+grid.arrange(plot_mean_error, plot_cov_error, ncol = 2)
+
+```
+
+
+
+```{r}
+# Definir las funciones necesarias (se asume que dirichlet_gamma() ya está definida)
+polya_statistics <- function(params, scale, N) {
+  dirichlet_gamma(params, scale, N)  # Se asume que devuelve una lista con medias y covarianza
+}
+
+# Generar datos con N = 10,000
+p1 <- polya_statistics(c(2, 5, 1), 1, 10000)
+covp1 <- p1$covarianza
+d1 <- dirichlet_gamma(c(2, 5, 1), 1, 10000)
+covd1 <- d1$covarianza
+
+# Calcular errores
+E <- c(2, 5, 1) / sum(c(2, 5, 1))  # Valor esperado
+COV <- covp1  # Supongamos que el valor teórico es la covarianza de Polya
+
+error_p1 <- sum(abs(p1$medias - E) / E)
+error_covp1 <- sum(abs(covp1 - COV) / COV)
+
+error_d1 <- sum(abs(d1$medias - E) / E)
+error_covd1 <- sum(abs(covd1 - COV) / COV)
+
+# Crear data frame para ggplot
+df_errors <- data.frame(
+  Method = rep(c("Polya N=10000", "Gammas N=10000"), 2),
+  Error_Type = rep(c("Mean Error", "Covariance Error"), each = 2),
+  Value = c(error_p1, error_d1, error_covp1, error_covd1)
+)
+
+colores_personalizados <- c("Gammas N=10000" = "#0e6655", "Polya N=10000" = "#1a5276")
+
+# Graficar el error de la media
+plot_mean_error <- ggplot(df_errors[df_errors$Error_Type == "Mean Error", ], aes(x = Method, y = Value, fill = Method)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean Error", x = "", y = "Error") +
+  theme_minimal() +
+  theme(legend.position = "none")+
+   scale_fill_manual(values = colores_personalizados)
+
+# Graficar el error de la covarianza
+plot_cov_error <- ggplot(df_errors[df_errors$Error_Type == "Covariance Error", ], aes(x = Method, y = Value, fill = Method)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Covariance Error", x = "", y = "Error") +
+  theme_minimal() +
+  theme(legend.position = "none")+
+   scale_fill_manual(values = colores_personalizados)
+
+# Mostrar ambos gráficos en una sola figura
+grid.arrange(plot_mean_error, plot_cov_error, ncol = 2)
+```
+
+
+# Ejecicio 9 
+
+
+En los datos Cork tenemos 4 columnas: N, E, S y W, cuyas medias son: `r unname(summary(datos$N)["Mean"])`, `r unname(summary(datos$E)["Mean"])`, `r unname(summary(datos$S)["Mean"])` y `r unname(summary(datos$W)["Mean"])`. Las medianas respectivas son: `r unname(summary(datos$N)["Median"])`, `r unname(summary(datos$E)["Median"])`, `r unname(summary(datos$S)["Median"])` y `r unname(summary(datos$W)["Median"])`. Esto nos ofrece una perspectiva sobre cómo se distribuyen nuestros datos.
+
+
+
+### Checando normalidad por columna
+
+```{r}
+#El dos en apply nos dice sobre donde vamos a palicar la funcion 1 es para filas y dos es para colunas
+prueba_individual <-  apply(datos, 2, function(x) shapiro.test(x)$p.value)  #H₀ (Hipótesis nula): Los datos siguen una distribución normal. vs H₁ (Hipótesis alternativa): Los datos no siguen una distribución normal.
+
+```
+
+Usando la prueba Shapiro-Wilk con un valor p de 0.05, obtuvimos que para N, E y S existe suficiente evidencia estadística para concluir que no se distribuyen de forma normal, ya que rechazamos Ho con valores p de:  `r unname(prueba_individual[1])`,  `r unname(prueba_individual[2]) `,  `r unname(prueba_individual[3]) `. La única para la cual no tenemos evidencia suficiente para rechazar la normalidad es W, con un valor p de:  `r unname(prueba_individual[4]) `.
+
+
+```{r}
+
+# Crear QQ-plots en ggplot2
+plot_qq <- function(data, col_name) {
+  ggplot(data, aes(sample = .data[[col_name]])) +
+    stat_qq() +
+    stat_qq_line(color = "#d35400", size = 1) +
+    labs(title = paste("QQ-Plot de", col_name), x = "Cuantiles teóricos", y = "Cuantiles muestrales") +
+    theme_minimal()
+}
+
+# Generar gráficos para cada variable
+qq_plots <- lapply(names(datos), function(col) plot_qq(datos, col))
+
+# Mostrar en una sola impresión
+grid.arrange(grobs = qq_plots, ncol = 2, nrow = 2)
+
+```
+
+A partir de los QQ-Plots, observamos que las variables N, E y S se desvían significativamente de una distribución normal, ya que presentan colas pesadas (curtosis elevada). Esto indica una mayor presencia de valores extremos o atípicos en comparación con una distribución normal. Además, los puntos en los QQ-Plots no siguen la línea de referencia esperada (línea naranja), lo que sugiere que la distribución subyacente difiere de la normal. Por otro lado, la variable W muestra un mejor ajuste a la distribución normal, con una menor cantidad de valores atípicos.
+
+
+
+```{r,   results="hide"}
+# Realizar la prueba de Mardia
+mardia_test <- mvn(data = datos, mvnTest = "mardia")
+print(mardia_test$multivariateNormality)
+
+# Realizar la prueba de Henze-Zirkler
+hz_test <- mvn(data = datos, mvnTest = "hz")
+print(hz_test$multivariateNormality)
+
+# Realizar la prueba de Royston
+royston_test <- mvn(data = datos, mvnTest = "royston")
+print(royston_test$multivariateNormality)
+
+
+
+
+```
+
+```{r texto}
+# Extraer los valores del data frame sin nombres
+valores <- unname((mardia_test$multivariateNormality)[[3]])
+
+# Convertir a una sola línea de texto
+texto_final <- paste(na.omit(valores), collapse = ", ")
+
+
+```
+
+
+
+#### Prueba de normalidad multivariada 
+
+
+
+Para realizar el test de normalidad hicimos tres pruebas de hipótesis: Mardia, Henze-Zirkler y Royston, de las cuales:
+
+Según la prueba de Mardia, aceptamos estadísticamente que nuestros datos se distribuyen de forma normal multivariada, con valores p de: `r texto_final`, donde el primer valor corresponde a la prueba Mardia Skewness y el segundo a la prueba Mardia Kurtosis. Por lo tanto, concluimos que existe evidencia de normalidad en los datos.
+
+Sin embargo, según la prueba Henze-Zirkler con un valor p de `r unname((hz_test$multivariateNormality)[3])`, y la prueba Royston con un valor p de `r unname((royston_test$multivariateNormality)[3])`, no tenemos suficiente evidencia estadística para concluir normalidad. Esto podría deberse al reducido número de observaciones (28), lo que limita la potencia estadística de las pruebas.
+
+
+
+
+
+```{r}
+mardia_test <- mvn(data = datos, mvnTest = "mardia", multivariatePlot = "qq")
+```
+
+Mediante nuestra gráfica y la prueba de Mardia, podemos concluir que estadísticamente nuestros datos siguen una distribución normal, aunque estamos siendo flexibles debido al reducido número de observaciones.
+
+# Ejercicio 10 
+
+
+### Inciso i)
+
+__Probar la hipiotesis nula de que el vino promedio difiera de 13.15 grados de alcohol y 2.5 unidades de aacido malico.__
+
+```{r}
+
+library(ICSNP)
+
+# Definir los datos y la media hipotética
+mu0 <- c(13.15, 2.5)  # Valores hipotéticos de referencia
+x <- datosWine[, c("Alcohol", "Malic_acid")]  # Subset con las variables de interés
+
+# Prueba de Hotelling T² de una muestra
+proof<- HotellingsT2(x - matrix(mu0, nrow = nrow(x), ncol = length(mu0), byrow = TRUE))
+
+```
+
+
+ 
+ Al realizar una prueba de Hotelling T², obtenemos que no existe evidencia estadística suficiente para concluir que el vino promedio difiera significativamente de 13.15 grados de alcohol y 2.5 unidades de ácido málico, con un valor p de  `r proof$p.value` .
+ 
+
+
+### Inciso ii)
+
+__Realizar los contrastes de hipiotesis necesarios para verificar si existe o no una diferencia para los niveles de alcohol y acido malico para las clases 1 y 2 de vinos.__
+
+```{r}
+
+group1 <- datosWine[datosWine$Class == 1, c("Alcohol", "Malic_acid")]
+group2 <- datosWine[datosWine$Class == 2, c("Alcohol", "Malic_acid")]
+
+proof_hot <- hotelling.test(group1, group2)
+
+
+
+```
+
+
+Al realizar una prueba de hipótesis de Hotelling para contrastar esta hipótesis, concluimos que estadísticamente no existe diferencia en los niveles de alcohol y ácido málico entre las clases 1 y 2 de vinos, con un valor p de `r unname(proof_hot$pval)`.
+
+
+
+
+
+```{r}
+# Calcular las medias de cada grupo
+medias <- datosWine %>%
+  group_by(Class) %>%
+  summarise(Alcohol = mean(Alcohol), Malic_acid = mean(Malic_acid))
+
+# Graficar los puntos individuales
+ggplot(datosWine, aes(x = Alcohol, y = Malic_acid, color = as.factor(Class))) +
+  geom_point(alpha = 0.5) +  # Puntos de datos individuales con transparencia
+  # Agregar las medias como puntos más grandes
+  geom_point(data = medias, aes(x = Alcohol, y = Malic_acid, color = as.factor(Class)), 
+             size = 5, shape = 7, stroke = 2) +  # Estrella para las medias
+  scale_color_manual(values = c("#2874a6", "#0e6655", "#d35400")) +  # Personalizar colores
+  labs(color = "Clase") +
+  theme_minimal()
+```
+
+
+El valor `r unname(proof_hot$pval)` resulta un poco curioso en nuestra prueba de hipótesis. Para analizarlo mejor, utilizamos la gráfica anterior, en la que presentamos un diagrama de dispersión y añadimos las medias de cada grupo (cuadros).
