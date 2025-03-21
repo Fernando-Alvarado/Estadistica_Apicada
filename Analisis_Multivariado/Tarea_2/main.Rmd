@@ -57,6 +57,13 @@ library(gridExtra)   # Mostrar múltiples gráficos
 
 ```
 
+
+```{r, python}
+library(reticulate)
+py_install("plotly")
+```
+
+
 ```{r Data}
 #Extrayendo nuestra data
 setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_2/Data")
@@ -253,6 +260,110 @@ plot_cov_error <- ggplot(df_errors[df_errors$Error_Type == "Covariance Error", ]
 grid.arrange(plot_mean_error, plot_cov_error, ncol = 2)
 
 ```
+
+```{python}
+import numpy as np
+import random
+
+# Simulating 3 independent and identically distributed (iid) gamma variables
+def dirichlet_gamma(params, scale, N: int) -> np.ndarray:
+    dirichlet_samples = []
+    
+    for _ in range(N):
+        sample = [random.gammavariate(a, scale) for a in params]
+        sample = [v / sum(sample) for v in sample]  # Normalización
+        dirichlet_samples.append(sample)
+
+    D = np.array(dirichlet_samples)
+    return D.mean(axis=0), np.cov(D, rowvar=False)
+
+# Uso de la función
+med, covs = dirichlet_gamma([2, 5, 1], 1, 1000)
+
+
+# Definición de los valores esperados (medias)
+E = np.array([2/8, 5/8, 1/8])
+
+# Varianza y covarianza
+V = np.array([
+    2/8 * (1 - 2/8) / 9,
+    5/8 * (1 - 5/8) / 9,
+    1/8 * (1 - 1/8) / 9
+])
+
+# Cálculo de correlaciones cruzadas
+CV12 = 2*5 / (8*8*9)
+CV13 = 2*1 / (8*8*9)
+CV23 = 5*1 / (8*8*9)
+
+# Matriz de covarianza
+COV = np.array([
+    [V[0], CV12, CV13],
+    [CV12, V[1], CV23],
+    [CV13, CV23, V[2]]
+])
+
+```
+
+
+### Inciso iii)
+
+```{python}
+
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import numpy as np
+
+# Simulación de datos
+p1, covp1 = np.random.normal(2, 5, 1000), np.random.normal(1, 1, 1000)
+d1, covd1 = np.random.gamma(2, 5, 1000), np.random.gamma(1, 1, 1000)
+
+E = np.mean(p1)  # Estimación de referencia
+COV = np.mean(covp1)
+
+# Cálculo de errores
+error_p1 = np.sum(np.abs((p1 - E) / E))
+error_covp1 = np.sum(np.abs((covp1 - COV) / COV))
+
+error_d1 = np.sum(np.abs((d1 - E) / E))
+error_covd1 = np.sum(np.abs((covd1 - COV) / COV))
+
+# Etiquetas y datos para graficar
+methods = ['Polya N=1000', 'Gammas N=1000']
+mean_errors = [error_p1, error_d1]
+cov_errors = [error_covp1, error_covd1]
+
+# Creación de subgráficos
+fig = make_subplots(rows=1, cols=2, 
+                    subplot_titles=['Mean Error', 'Covariance Error'], 
+                    shared_yaxes=False)
+
+# Gráfico de error medio
+fig.add_trace(
+    go.Bar(x=methods, y=mean_errors, name="Mean Error"),
+    row=1, col=1
+)
+
+# Gráfico de error de covarianza
+fig.add_trace(
+    go.Bar(x=methods, y=cov_errors, name="Covariance Error"),
+    row=1, col=2
+)
+
+# Configuración del diseño
+fig.update_layout(
+    title_text="Comparison of Errors for N=1000",
+    height=500,
+    width=800,
+    showlegend=False
+)
+
+# Mostrar gráfico
+fig.show()
+
+```
+
 
 
 

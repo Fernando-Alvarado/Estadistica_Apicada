@@ -111,6 +111,8 @@ posib_cov <- seq(1,2.5,.05)
 #Hace todas las combinaciones
 combinaciones <- expand.grid(x = posib_pot, y = posib_cov)
 
+
+
 # Aplicar la función a todas las combinaciones
 AIC_Mods <- apply(expand.grid(posib_pot, posib_cov), 1, function(par) {
   AIC(lm(salary ~ I(years^par[2]), data = data, weights = 1 / I(years^par[1])))
