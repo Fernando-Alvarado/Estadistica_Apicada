@@ -1,0 +1,529 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+library(dplyr)      # Para el manejo de datos
+library(tidyr)
+
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(knitr)
+library(purrr)      # Para la función map y map2
+
+
+# Para purebas de hipotesis
+
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+library(lmtest )    #Checar homoceasticidad
+library(nortest )
+
+
+
+#Extrayendo nuestra datas
+setwd("C:/Users/ferna/Documents/Seminario_Estadistica/Proyecto_1/Ejercicio_1")
+
+data <- read.csv("./Data/Preg1A.csv")
+
+
+
+
+```
+
+
+
+# Exploración de modelos
+
+En este proyecto se realizó un algoritmo para encontrar el mejor modelo que represente adecuadamente nuestros datos. Se utilizaron regresión múltiple, regresión ponderada y modelos lineales generalizados (normal, gamma, gaussiana inversa), donde cada variable fue elevada a una potencia. Posteriormente, cada modelo fue evaluado utilizando la métrica AIC y se ordenaron de menor a mayor AIC para identificar el modelo con el valor mínimo y evaluar si cumplía con los supuestos.
+
+La base de datos utilizada en este proyecto contiene información sobre 438 pacientes seleccionados de forma aleatoria. Con el modelo seleccionado, se busca analizar si existe una asociación entre la presión arterial sistólica (`bpsystol`) y el índice de masa corporal (`bmi`). En particular, se quiere observar si un índice de masa corporal elevado se asocia con una presión arterial sistólica alta.
+
+
+
+```{r Hiperparámetros}
+#Hiperparámetros de nuestro algoritmo 
+
+
+
+#Primeros parametros de nuestro algoritmo de la malla 
+
+long_Modelo <- 2 #Longitud que tengra nuestro modelo 
+limiteInfMalla <- 0 #Lo que la malla debe de empezar a checar
+limSuperiorMalla <- 5 #Limite superior malla
+finura <- .3 #Para empezar a hacer pruebas 
+
+
+#Primeros GLMS
+
+Distribuciones=c("gaussian", "Gamma", "inverse.gaussian" )
+FunLigas=c("identity", "log", "inverse", "1/mu^2")
+
+
+```
+
+
+```{r Algoritmo_Malla}
+
+#Algoritmo malla (Aqui hare la malla para poder elevar a las variables a la potencia que se requiera)
+
+
+
+mallaAl <- function(n, liminf, limsup, finura, des_Ponderada = 0 , limInfpon = 0, limSuppon = 2, distribucion  = c(), funcion_liga= c(), numPesos){
+  #Parametros
+  #n: número de parametros que tiene nuestro modelo 
+  #liminf: límite inferior de la malla, para las variables x
+  #limsup: límite superior de la malla, para las variables x
+  #finura: finura de la malla que deseamos
+  #des_Ponderada: si se requiere usar regresion ponderada
+  #limInfpon: límite inferior de la regresion ponderada
+  #limSuppon: límite superior de la regresion ponderada 
+  #distribucion: distribucion que se requiere para el GLM
+  #funcion_liga: funcion liga que se requiere para el GLM
+  #numPesos: Parametro que nos dice cuantos direntes pesos tendremos que considerar a la hora de hacer regresion ponderada
+  
+  
+  seq_values <- seq(liminf, limsup, by = finura)  #Creando las recuencias para la malla y posteriormente elevar la variable 
+  df <- data.frame(matrix(ncol = 0, nrow = length(seq_values))) # Se creo el df, para poder poner las variables
+
+
+  for (i in 1:n) {
+    col_name <- paste("var_", i, sep = "")  # Crear nombre de columna
+    df[[col_name]] <- seq_values  # Asignar los valores de la secuencia
+  }
+  
+  df["Num_Ponderada"] <- c(1:numPesos,  rep(NA, times = length(seq_values) - numPesos))  #Definiendo las combinaciones de nuestro modelo de regresion ponderada
+  
+  if(!is.null(distribucion) ){ #Agregando los GLM
+    df["GLM"] <- c(0, distribucion, rep(NA, times = length(seq_values) - length(distribucion)-1))
+    df["liga"] <- c(funcion_liga, rep(NA, times = length(seq_values) - length(funcion_liga)))
+  }
+  
+  if(des_Ponderada == 1){ #En caso de necesitar regresion donderada se agrega una columan con una secuencia de ponderada 
+    #Maya de regresion ponderada donde se puede cntrolar los limites de la reg ponderda, pero su finura depede de la longitud del df
+    df[["Ponderada"]] <- seq(limInfpon, limSuppon, length.out = length(seq_values)) 
+    return(expand.grid(df))
+  } else{
+    expan <- expand.grid(df)
+    expan[["Ponderada"]] <- rep(0, times = length(expan$var_1))
+    return(expan)
+  }
+
+ 
+}
+
+
+```
+
+
+```{r Resultados_Malla}
+
+
+limpieza_mallaa <- function(dfMalla){
+  #Funcion para limpiar nuestra malla, ya que viene con varios NA y con filas repetidas
+    clean <- dfMalla %>%
+    drop_na() %>%  # Elimina filas con NA en cualquier columna
+    distinct()     # Elimina filas duplicadas
+    return( clean)
+}
+#Sin Na tengo 35,152
+
+malla <- limpieza_mallaa(mallaAl(long_Modelo, limiteInfMalla, limSuperiorMalla, finura, 
+                                 des_Ponderada = 1, limInfpon = 0, limSuppon = 2.5,  distribucion  = Distribuciones, funcion_liga= FunLigas, 2))
+
+
+```
+
+
+
+
+
+```{r Filtrando_modelos}
+regresion <- malla %>% 
+  dplyr::filter(malla$GLM == "0" & malla$Ponderada == 0) %>% #Aplicamos el filtro para solo seleccionar las que seran para la regresion normal
+  dplyr::select(var_1, var_2)%>%  # Elimina filas con NA en cualquier columna
+    distinct() 
+
+
+#regresion
+
+num_regresion <- length(regresion$var_1)
+
+#Veamos el numero de regresiones normales
+#num_regresion
+
+
+
+regresion_Ponderada <- malla %>%
+  dplyr::filter( malla$Ponderada !=0) %>% #Aplicamos el filtro para solo seleccionar las que seran para la regresion normal
+  dplyr::select(var_1, var_2, Num_Ponderada, Ponderada)%>%  # Elimina filas con NA en cualquier columna
+    distinct() 
+
+
+num_regresion_Ponderada <- length(regresion_Ponderada$var_1)
+
+#num_regresion_Ponderada
+
+
+modelos_GLM  <- malla %>%
+  dplyr::filter(malla$GLM != "0") %>% #Aplicamos el filtro para solo seleccionar las que seran para la regresion normal
+  dplyr::select(var_1, var_2, GLM, liga)%>%  # Elimina filas con NA en cualquier columna
+    distinct() 
+
+
+num_modelos_GLM <- length(modelos_GLM$var_1)
+
+
+
+```
+
+
+
+
+```{r Total_Modelos}
+total <- num_modelos_GLM + num_regresion_Ponderada + num_regresion
+```
+
+
+## Explicación del algoritmo
+
+En el algoritmo empleado, definimos una función que generaba una **malla** (con todos los valores y combinaciones posibles) para **var_1** y **var_2**. Esta se creó a partir de una secuencia de [0, 5] con incrementos de 0.3. Luego, se construyó la columna **Num_Ponderada**, en la cual se definía qué variable iba a tomar el peso en nuestra regresión ponderada. El peso se especificaba en la columna **Ponderada**. 
+
+Para los modelos lineales generalizados, se utilizaron las columnas **Num_Ponderada** y **GLM**.
+
+
+
+```{r tabla_malla}
+head(malla) %>%
+  kable(format = "html", caption = "Primeros datos") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = FALSE, position = "center")
+```
+
+
+Ejemplo de cómo se veía el data frame **malla**, con los primeros 10 elementos. Este data frame contenía: `r length(malla$var_1)` combinaciones.
+
+Posteriormente, se realizó un filtrado a nuestra **malla** para saber qué tipo de modelo se iba a evaluar con cada fila. Este proceso ayudó a reducir el número de modelos a evaluar, ya que eliminaba elementos repetidos de nuestra **malla**. Los criterios para esta elección fueron los siguientes:
+
+- Si las columnas **GLM** y **Ponderada** eran iguales a 0, entonces se aplicaba un modelo de regresión múltiple, donde:
+
+  $$
+  \mathbb{E}[\text{bpsystol}] = \text{bmi}^{\text{var_1}} + \text{age}^{\text{var_2}} + \text{sex}
+  $$
+
+- Si la columna **Ponderada** era distinta de 0, se aplicaba regresión ponderada. Con **Num_Ponderada** se elegía a qué variable (**bmi** o **age**) se le asignaría el peso:
+
+  + Si **Num_Ponderada** era igual a 1, entonces:
+
+    $$
+    \mathbb{E}[\text{bpsystol}] = \text{bmi}^{\text{var_1}} + \text{age}^{\text{var_2}} + \text{sex}, \quad \text{weights} = \frac{1}{\text{bmi}^{\text{Ponderada}}}
+    $$
+
+  + En caso contrario:
+
+    $$
+    \mathbb{E}[\text{bpsystol}] = \text{bmi}^{\text{var_1}} + \text{age}^{\text{var_2}} + \text{sex}, \quad \text{weights} = \frac{1}{\text{age}^{\text{Ponderada}}}
+    $$
+
+- Por último, si **GLM** era distinto de 0, se aplicaba un modelo GLM, donde:
+
+  $$
+  g\left(\mathbb{E}[\text{bpsystol}]\right) = \text{bmi}^{\text{var_1}} + \text{age}^{\text{var_2}} + \text{sex}
+  $$
+
+Con todo esto, se evaluó un total de: `r total` modelos, de los cuales se evaluaron:
+
+- `r num_regresion` modelos de regresión múltiple  
+- `r num_regresion_Ponderada` modelos de regresión ponderada  
+- `r num_modelos_GLM` modelos GLM
+ 
+
+
+```{r Procesamiento_datos}
+
+# Evaluando los modelos de regresion multivariada
+evaluando_regresion <- apply(regresion, 1 ,function(df){
+    AIC(lm(bpsystol ~  I(bmi^df[1]) + I(age^df[2]) + sex , data = data))
+})
+
+
+AIC_regresion <- data.frame(regresion, AIC = unlist(evaluando_regresion))
+
+
+#Evaluando los modelos de regrecion multivarada ponderada
+evaluando_regresion_Ponderada <- apply(regresion_Ponderada, 1, function(df){
+   if(df[3] == 1){
+        AIC(lm(bpsystol ~  I(bmi^df[1]) + I(age^df[2]) + sex , weights = 1 / I(bmi^df[4]), data = data)) #Pondera en base a BMI
+      } else{
+        AIC(lm(bpsystol ~  I(bmi^df[1]) + I(age^df[2]) + sex , weights = 1 / I(age^df[4]), data = data)) #Pondera en base a age
+      }
+})
+
+AIC_regresion_Ponderada <- data.frame(regresion_Ponderada, AIC = unlist(evaluando_regresion_Ponderada))
+
+
+
+#Evaluando los modelos GLMs
+evaluando_modelos_GLM <- apply(modelos_GLM, 1, function(df){
+   fam_selec <- get(as.character(df[3])) #Seleccionamios la funcion que viene en la palabra  
+   AIC(glm(bpsystol ~  I(bmi^as.numeric(df[1])) + I(age^as.numeric(df[2])) + sex , data = data, family = fam_selec(link =df[4])))
+  
+})
+
+AIC_modelos_GLM <- data.frame(modelos_GLM, AIC= unlist(evaluando_modelos_GLM))
+
+```
+
+
+
+
+
+```{r Uniendo_DF}
+# Uniendo los dataframes como una pila
+AIC_Models <- bind_rows(AIC_regresion, AIC_regresion_Ponderada, AIC_modelos_GLM )
+```
+
+
+```{r Seleccion_Modelos}
+n <- 10 # Numero de modelos que queremos
+
+# Ordenar los valores de AIC y seleccionar los n más pequeños
+indices_minimos <- order(AIC_Models$AIC)[1:n]
+
+# Crear un data frame con los n valores mínimos de AIC y sus respectivos parámetros
+df_minimos <- AIC_Models[indices_minimos, ]
+
+
+head(df_minimos) %>%
+  kable(format = "html", caption = "Top 10 mejores modelos") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = FALSE, position = "center")
+
+```
+
+
+
+```{r Modelo_Elegido}
+
+modelo <- glm(bpsystol ~  I(bmi^1.2) + I(age^4.2) + sex , data = data, family = Gamma(link = "identity"))
+
+```
+
+
+### Modelo seleccionado:
+
+Se seleccionó un modelo GLM con distribución Gamma y función de enlace identidad, el cual obtuvo un AIC de: `r AIC(modelo)`, donde:
+
+$$
+\mathbb{E}[\text{bpsystol} \mid \text{bmi}, \text{age}, \text{sex}] = \beta_0 + \beta_1 x_1^{1.2} + \beta_2 x_2^{4.2} + \beta_3 x_1
+$$
+
+Aquí:
+
+- \( x_1 \) representa la variable **bmi**
+- \( x_2 \) representa la variable **age**
+
+
+
+```{r Verificacion_supuestos}
+
+#Prueba de linealidad
+linealidad <- residualPlots(modelo, test = FALSE, plot = FALSE) #Test H0 = La relacion entre el predictor y la respuesta e lina vs HA: La relacion no es lineal
+homoceasticidad<- lmtest::bptest(modelo)  #Ho, la variaza de los errores es contante va HA, la varianza no es contante
+normalidad <- ad.test(residuals(modelo))  # Ho el modelo es normal 
+corResiduos <- bgtest(modelo)
+```
+
+
+ 
+#### Verificación de supuestos
+
+Haciendo la verificación de supuestos mediante pruebas de hipótesis, concluimos lo siguiente:
+
+- Nuestro modelo cumple con la linealidad en las tres variables, gracias al test de Ramsey (librería `car`). Con un p-valor de `r as.numeric((linealidad[, "Pr(>|Test stat|)"])[1])` verificamos la linealidad de **bmi**; con un p-valor de `r as.numeric((linealidad[, "Pr(>|Test stat|)"])[2])` la de **age**; y con un p-valor de `r as.numeric((linealidad[, "Pr(>|Test stat|)"])[3])` la de **sex**.
+
+- También se cumple el supuesto de homocedasticidad. Con un p-valor de `r homoceasticidad$p.value`, se concluye que no existe evidencia suficiente para rechazar la hipótesis nula de homocedasticidad.
+
+- Además, gracias al tamaño de nuestra muestra y a la prueba de Anderson-Darling, con un p-valor de `r normalidad$p.value`, podemos concluir que los residuos se distribuyen normalmente (por tamaño muestral y contraste de hipótesis).
+
+- Por último, la prueba de Breusch-Godfrey arrojó un p-valor de `r corResiduos$p.value`, lo que indica que no hay evidencia suficiente para rechazar la hipótesis nula de no autocorrelación.
+
+Por lo tanto, nuestro modelo cumple con todos los supuestos requeridos.
+
+---
+
+## Poniendo a prueba nuestro modelo
+
+¿Se puede afirmar que, para una persona de cierta edad y sexo, tener un índice de masa corporal alto se asocia con una presión arterial sistólica elevada?
+
+Para responder esta pregunta, se plantea el siguiente razonamiento: supongamos que tenemos dos pacientes del mismo sexo \( C \) y misma edad \( K \), pero con diferente **bmi**: uno con \( x < y \). Entonces, lo que queremos contrastar es:
+
+$$
+\mathbb{E}[\text{bpsystol} \mid x, K, C] < \mathbb{E}[\text{bpsystol} \mid y, K, C]
+$$
+
+Dado el modelo:
+
+$$
+\mathbb{E}[\text{bpsystol} \mid \text{bmi}, \text{age}, \text{sex}] = \beta_0 + \beta_1 (\text{bmi})^{1.2} + \beta_2 (\text{age})^{4.2} + \beta_3 (\text{sex})
+$$
+
+Se tiene:
+
+$$
+\beta_0 + \beta_1 x^{1.2} + \beta_2 K^{4.2} + \beta_3 C < \beta_0 + \beta_1 y^{1.2} + \beta_2 K^{4.2} + \beta_3 C
+$$
+
+Lo cual se reduce a:
+
+$$
+\beta_1 x^{1.2} < \beta_1 y^{1.2} \Leftrightarrow 0 < \beta_1 (y^{1.2} - x^{1.2})
+$$
+
+Dado que \( y > x \) y la diferencia está elevada a una potencia positiva, y considerando que la función de enlace es la identidad, esta afirmación se cumple **si y solo si** \( \beta_1 > 0 \).
+
+Por lo tanto, la hipótesis a contrastar es:
+
+$$
+H_0 : \beta_1 \leq 0 \quad \text{vs} \quad H_A : \beta_1 > 0
+$$
+
+
+
+
+```{r Prueba_Hipotesis_Ho}
+#E[Y| bmi, age, sex] = b0 + b1 (x_1)^1.2 + b2 (x_2)^4.2 + b3 (x_1)
+
+
+
+k = matrix(c(0,1,0,0), ncol=4, nrow = 1, byrow = TRUE)
+
+b1_mayor_0<-  summary(glht(modelo, linfct =k , rhs = c(0), alternative = "greater"))
+
+# b1_mayor_0
+
+```
+
+
+Usando la prueba de hipótesis en R, se obtuvo un p-valor de `2e-16`, por lo que existe suficiente evidencia estadística para rechazar \( H_0 \) y concluir que \( \beta_1 > 0 \). El valor estimado de \( \beta_1 \) fue de 0.5246, lo que implica que, en pacientes del mismo sexo y edad, un mayor índice de masa corporal (**bmi**) se asocia con una mayor presión arterial sistólica.
+
+Este resultado sugiere que un aumento en el **bmi** podría tener un efecto negativo sobre la presión arterial, lo cual puede representar un riesgo para la salud cardiovascular. Por ello, se recomienda mantener un peso saludable como medida preventiva.
+
+
+
+
+```{r filtrado_datos_grafica}
+datos_filtrados <- data %>%
+  dplyr::select(bpsystol, bmi, age, sex) %>%
+  dplyr::filter(age %in% c(30, 45, 60))  %>%
+  dplyr::mutate(sex = as.factor(sex))
+
+```
+
+
+
+## Gráfica
+
+Para complementar la interpretación, se presenta la gráfica de la estimación puntual asociada a la relación entre **bpsystol** y **bmi**. 
+
+En esta visualización, se eligieron edades representativas de 30, 45 y 60 años (no se incluyó 65 años, ya que no había pacientes con esa edad en la muestra). Asimismo, se diferenciaron los grupos por sexo (hombres y mujeres), incorporando la predicción generada por nuestro modelo para cada combinación.
+
+Esto nos permite observar cómo afecta el índice de masa corporal (**bmi**) a la presión arterial sistólica según edad y sexo.
+
+
+
+```{r grafica}
+# Crear grid de predicción
+grid <- expand.grid(
+  bmi = seq(min(data$bmi), max(data$bmi), length.out = 100),
+  age = c(30, 45, 60),
+  sex = c(1, 2)
+)
+
+# Agregar predicción del modelo
+grid$bpsystol_pred <- predict(modelo, newdata = grid, type = "response")
+
+
+
+
+ggplot(datos_filtrados) + ##Grafica donde
+  aes(x = bmi, y = bpsystol, colour = as.factor(sex)) +
+  geom_point(size = 3, shape = "square") +
+  # Línea del modelo predicho
+  geom_line(data = grid, aes(x = bmi, y = bpsystol_pred, group = sex, colour = as.factor(sex)), size = 1.2) +
+  scale_color_manual(
+    values = c(`1` = "#25A5E6", `2` = "#E52D9F"),
+    labels = c("Hombre", "Mujer"),
+    name = "Sexo"
+  ) +
+  facet_wrap(~ age, scales = "free") +
+  labs(
+    title = "Relación entre BMI y presión sistólica",
+    subtitle = "Curvas del modelo por edad y sexo",
+    x = "BMI",
+    y = "Presión sistólica estimada"
+  ) +
+  theme_dark()
+
+
+
+
+```
+
+
+
+A partir de la gráfica, y como conclusión general, se observa que efectivamente un menor **bmi** se asocia con una menor presión arterial sistólica, tal como fue respaldado por la prueba de hipótesis.
+
+Este efecto no es invariante con respecto a la edad ni al sexo: aunque la tendencia general se mantiene, la magnitud del impacto varía entre grupos. Esto refuerza la importancia de mantener un peso saludable y una alimentación adecuada como medidas clave para preservar la salud cardiovascular.
+
+
+
+```{r AIC_eje1}
+modelo_eje1 <- lm(log(bpsystol) ~ log(bmi) + sex + I(age^3), data = data)
+
+
+eje1AIC <- AIC(modelo_eje1)
+
+selectAIC <- AIC(modelo)
+
+```
+
+
+
+## Conclusión
+
+En el modelo usado en el **Ejercicio 1**, se planteó lo siguiente:
+
+$$
+\mathbb{E}[\ln(\text{bpsystol}) \mid \text{bmi},\ \text{age},\ \text{sex}] = \beta_0 + \beta_1 \ln(\text{bmi}) + \beta_2 (\text{age})^3 + \beta_3 (\text{sex})
+$$
+
+Donde su AIC fue de `r eje1AIC`, mientras que el GLM que elegimos obtuvo un AIC de: `r selectAIC`. Estos AIC no son comparables directamente, ya que se basan en verosimilitudes distintas. Sin embargo, ambos modelos cumplen con los supuestos de regresión y permiten llegar a conclusiones sobre \( \beta_1 > 0 \). Por tanto, ambos son modelos válidos para explicar nuestros datos.
+
+Aunque, como conclusión personal, me quedaría con el modelo **GLM**, ya que el modelo del ejercicio 1 transforma la variable dependiente a \( \ln(\text{bpsystol}) \) y también incluye \( \ln(\text{bmi}) \), lo que complica la interpretación de los resultados y dificulta explicar las escalas a personas que no conocen o no comprenden bien qué es un logaritmo. Por lo tanto, el modelo GLM sería una mejor opción.
+
+ 
+
