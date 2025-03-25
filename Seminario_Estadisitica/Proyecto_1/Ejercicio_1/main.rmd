@@ -1,0 +1,309 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+library(dplyr)      # Para el manejo de datos
+library(tidyr)
+
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(knitr)
+library(purrr)      # Para la función map y map2
+
+
+# Para purebas de hipotesis
+
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+library(lmtest )    #Checar homoceasticidad
+library(nortest )
+
+
+
+#Extrayendo nuestra datas
+setwd("C:/Users/ferna/Documents/Seminario_Estadistica/Proyecto_1/Ejercicio_1")
+
+data <- read.csv("./Data/Preg1A.csv")
+
+
+
+
+```
+
+
+
+# Exploración de modelos
+
+
+La base de datos utilizada en este proyecto contiene información sobre 438 pacientes seleccionados de forma aleatoria. Con el modelo seleccionado, se busca analizar si existe una asociación entre la presión arterial sistólica (`bpsystol`) y el índice de masa corporal (`bmi`). En particular, se quiere observar si un índice de masa corporal elevado se asocia con una presión arterial sistólica alta.
+
+
+
+## Reparar las conclusiones en esta parte solo voy a tirar codigo
+
+```{r}
+summary(data)
+
+data$sex <- as.factor(data$sex)
+```
+
+
+
++ Ajustando un modelo de regresion multinomial 
+
+```{r}
+
+modelo <- lm(bpsystol ~ bmi + age + sex, data = data)
+
+
+summary(modelo)
+
+
+AIC(modelo)
+
+```
+
+
+```{r}
+#Prueba de linealidad
+linealidad <- residualPlots(modelo, test = FALSE, plot = TRUE) #Test H0 = La relacion entre el predictor y la respuesta e lina vs HA: La relacion no es lineal
+homoceasticidad<- lmtest::bptest(modelo)  #Ho, la variaza de los errores es contante va HA, la varianza no es contante
+normalidad <- ad.test(residuals(modelo))  # Ho el modelo es normal 
+corResiduos <- bgtest(modelo)
+```
+
+
+
+```{r}
+linealidad
+```
+Observamos que age no es lineal 
+
+
+
+```{r}
+homoceasticidad
+```
+
+tampoco tenemmos hoceasticidad 
+
+
+
+```{r}
+normalidad
+```
+
+Pero tenemos normalidad en nuestros datos 
+
+
+```{r}
+corResiduos
+```
+y tenenmos  correlacion de residuos 
+
+
+
+## Haciendo una trasnformacion Box-cox a nuestros datos
+
+```{r}
+#summary(data)
+
+bc <- boxcox(modelo)   #Hace una grafica del modelo para verpor donde pasa el maximo, que es casi en 0
+#--Guia para usar boxcox--
+#Si λ = 1: no transformes
+#Si λ = 0: usa logaritmo
+#Si λ = 0.5: usa raíz cuadrada
+#Si λ = -1: usa la inversa (1/y)
+#SI λ = n>1: usa usa una potencia
+
+
+
+
+# Encuentra el índice donde la log-verosimilitud es máxima
+lambda_opt <- bc$x[which.max(bc$y)]
+
+lambda_opt  # Este es el valor óptimo de lambda # Aqui me da solo el valor que debo transformar y por lm 
+
+a <- boxTidwell(bpsystol ~ bmi + age, data = data)
+
+
+a
+```
+
+
+
+### Delcarando nuestro nuevo modelo 
+
+```{r}
+
+
+modelo_transformado <- lm(I(log(bpsystol)) ~ I(log(bmi)) + I(age^4) + sex, data = data )
+
+
+summary(modelo_transformado)
+```
+
+
+```{r}
+#Prueba de linealidad
+linealidad2 <- residualPlots(modelo_transformado, test = FALSE, plot = TRUE) #Test H0 = La relacion entre el predictor y la respuesta e lina vs HA: La relacion no es lineal
+homoceasticidad2<- lmtest::bptest(modelo_transformado)  #Ho, la variaza de los errores es contante va HA, la varianza no es contante
+normalidad2 <- ad.test(residuals(modelo_transformado))  # Ho el modelo es normal 
+corResiduos2 <- bgtest(modelo_transformado)
+```
+
+
+
+
+
+```{r}
+linealidad2
+```
+
+```{r}
+homoceasticidad2
+```
+
+```{r}
+normalidad2
+```
+
+```{r}
+corResiduos2
+```
+
+Ya con todo esto nuestro modelo de regresion pasa todos nuestros supuestos 
+
+
+
+### Inciso 3, mayor IMB implica mayot frecuencia cardica en pacientes con la misma esdad y sexo? 
+
+```{r}
+
+k = matrix(c(0,1,0,0), ncol=4, nrow = 1, byrow = TRUE)
+
+b1_mayor_0<-  summary(glht(modelo_transformado, linfct =k , rhs = c(0), alternative = "greater"))
+
+
+b1_mayor_0
+
+```
+
+
+
+```{r}
+library(dplyr)
+
+
+head(data)
+
+filtrado <- data %>% 
+            dplyr::select(bpsystol, bmi, age, sex) %>%
+             dplyr::filter(age %in% c(30, 45, 60))
+filtrado
+```
+
+
+
+
+```{r}
+#modelo_transformado <- lm(I(log(bpsystol)) ~ I(log(bmi)) + I(age^4) + sex, data = data )
+
+grid <- expand.grid(
+  bmi = seq(min(data$bmi), max(data$bmi), length.out = 100),
+  age = c(30, 45, 60),
+  sex = factor(c(1, 2), levels = levels(data$sex))
+)
+
+# Agregar predicción del modelo
+grid$bpsystol_pred <- predict(modelo_transformado, newdata = grid, type = "response")
+
+ggplot(filtrado) + ##Grafica donde
+  aes(x = bmi, y = bpsystol, colour = as.factor(sex)) +
+  geom_point(size = 3, shape = "square") +
+  # Línea del modelo predicho
+  geom_line(data = grid, aes(x = bmi, y = bpsystol_pred, group = sex, colour = as.factor(sex)), size = 1.2) +
+ scale_color_manual(
+  values = c("#25A5E6", "#E52D9F"),
+  labels = c("Hombre", "Mujer"),
+  name = "Sexo"
+) +
+facet_wrap(~ age, scales = "free") +
+labs(
+  title = "Relación entre BMI y presión sistólica",
+  subtitle = "Curvas del modelo por edad y sexo",
+  x = "BMI",
+  y = "Presión sistólica estimada"
+) +
+theme_dark()
+
+```
+
+
+
+
+
+
+```{r}
+library(esquisse)
+
+esquisser(filtrado)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
