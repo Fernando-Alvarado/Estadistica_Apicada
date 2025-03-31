@@ -1,0 +1,125 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Proyecto_1/Ejercicio_3/Data")
+data <- read.csv("Preg3vA.csv")
+
+#Librerias a usar
+library(dplyr)
+library(ggplot2)
+library(esquisse) #Manejo grafico de datos
+#esquisser(my_data)
+
+
+library(DHARMa) #simula datos bajo el modelo ajustado y compara los residuales simulados con los residuales observado
+
+```
+
+
+```{r}
+data
+#esquisser(data)
+
+```
+Grafica para visualizar mejor nuestros datos 
+
+
+
+```{r}
+ggplot(data) +
+  aes(
+    x = Deposit,
+    y = Killed,
+    colour = Insecticide,
+    size = Number
+  ) +
+  geom_point(alpha = 0.7) +  # Transparencia para superposición
+  scale_size_continuous(
+    range = c(2, 10),        # Ajusta el rango de los tamaños de los puntos
+    breaks = c(30, 35, 40, 45, 50), # Muestras explícitamente los valores
+    name = "Number of Insects"
+  ) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+
+
+```
+Con esta grafica podemos intuir que el insecticda C, mata a mas insectos sin importar la dosis, pero que si aplicas la dosis de 8mg puedes llegar a matar a casito todos o todos los insextos, mientas que en los insecticidas del tipo A y B, si usas la dosis minima casi no matas insectos por lo que debes incrementarla 
+
+```{r}
+
+```
+
+
+
+```{r}
+#Hay 4 ligas que se podrían usar:
+fitlogit=glm(Y~X*Z, family = binomial(link="logit"), data=Datos)
+summary(fitlogit)
+
+fitprob=glm(Y~X*Z, family = binomial(link="probit"), data=Datos)
+summary(fitprob)
+
+fitlog=glm(Y~X*Z, family = binomial(link="log"), data=Datos)
+summary(fitlog)
+
+fitcll=glm(Y~X*Z, family = binomial(link="cloglog"), data=Datos)
+summary(fitcll)
+
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
