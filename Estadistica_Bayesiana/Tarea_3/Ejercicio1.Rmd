@@ -1,7 +1,4 @@
 ---
-title: "Título del documento"
-author: "Tu nombre"
-date: "`r Sys.Date()`"
 output: html_document
 ---
 
@@ -24,30 +21,25 @@ library(tidyr)
 votantes = c(130832, 229927, 347262, 426871)
 
 total = 900 * 750
+
+simulaciones = 10000
 ```
 
-
-# Inciso a
-
-```{r}
+```{r echo=TRUE}
 sim_teoria_Elecciones <- function(a,b, muestra, total){
   # a, parametro 1 de nuestra distribucuon beta
   # b, parametro 2 de nuestra beta
   # muestra, qwuiero saber la muestra que tengo
-  
-  
   a_post <- a + muestra
   b_post <- b +  total - muestra
   
-  
-  
   #Crenado una secuencia para
-  theta <- seq(0.001, 0.999, length.out = 1000)
+  theta <- seq(0.01, 0.99, length.out = 100)
   prior <-  dbeta(theta, a, b)
   log_verosimilitud <- muestra * log(theta) + (total - muestra) + log(1 - theta)
-  exp_verosimilitud <- exp(log_verosimilitud - max(log_verosimilitud))
+  exp_verosimilitud <- dbinom(muestra, size = total, prob = theta)
+  #exp(log_verosimilitud - max(log_verosimilitud))
   posterior <- dbeta(theta, a_post, b_post)
-  
   
   df <- data.frame(
     theta = theta,
@@ -56,21 +48,34 @@ sim_teoria_Elecciones <- function(a,b, muestra, total){
     posterior = posterior
   )
   
-  
   df_long <- pivot_longer(df,
                           cols = c(prior, exp_verosimilitud, posterior),
                           names_to = "Distribucion",
                           values_to = "Densidad")
   return(df_long)
-  
-  
 }
 
-
-
-
-
+medidas_Eleccciones <- function(a,b, muestra, total){
+   a_post <- a + muestra
+   b_post <- b +  total - muestra
+  #Estimaciones Teoricas
+  media <- a_post / (a_post + b_post)
+  intervalo <- qbeta(c(0.025, 0.975), a_post, b_post)
+  #Estimaciones Simuladas
+  x = rbeta(simulaciones, a_post,b_post)
+  media_S = mean(x) #Media simulada
+  Intervalo_S = quantile(x, c(0.025, 0.975)) #Intervalo simulado
+  
+  salida <- list(
+    Media = media,
+    Intervalo = intervalo,
+    Media_Sim = media_S,
+    Intervalo_Sim = Intervalo_S
+  )
+  return(salida)
+}
 ```
+# Inciso a) 
 
 
 ```{r}
@@ -82,88 +87,74 @@ for(i in 1:4){
     geom_line(size = 1) +
     theme_minimal() +
     labs(title =  "Distribuciones: prior, verosimilitud y posterior",
-         subtitle = paste( " con # votantes = ", votantes[i], " y # total de votantes = ", total * i* 0.25),
+         subtitle  = paste( " con num. votantes = ", votantes[i], " y num total de votantes = ", total * i* 0.25),
          x = expression(theta),
-         y = "Densidad")
+         y = "Densidad") + 
+      annotate("text",
+               x = 0.005,
+               y = max(df_plot$Densidad) * 0.9,
+               hjust = 0,
+               size = 4,
+               label = paste0(
+                              " -Con una media de: ", round( medidas_Eleccciones(30, 20, votantes[i], total * i* (0.25))$Media, 5), 
+                              " y un intervalo \nde: (", round(medidas_Eleccciones(30, 20, votantes[i], total * i* (0.25))$Intervalo[1],5), ","
+                              , round(medidas_Eleccciones(30, 20, votantes[i], total * i* (0.25))$Intervalo[2], 5) , ")", "(Forma Teorica)",
+                              "\n -Con una media de: ", round(medidas_Eleccciones(30, 20, votantes[i], total * i* (0.25))$Media_Sim, 5),
+                              " y un intervalo \nde: (", round(medidas_Eleccciones(30, 20, votantes[i], total * i* (0.25))$Intervalo_Sim[1],5), ","
+                              , round(medidas_Eleccciones(30, 20, votantes[i], total * i* (0.25))$Intervalo_Sim[2], 5) , ")", "(Forma Simulada)"
+                              )  
+                              )
+      
  )
   
 }
 ```
 
+# Inciso b) 
 
-
-
-
-```{r}
-# Paquetes necesarios
-library(ggplot2)
-library(dplyr)
-
-# Datos del primer corte
-k <- 130832
-n <- 900 * 750 * 0.25  # 25% del total
-
-# Hiperparámetros del prior
-a <- 30
-b <- 20
-
-# Posterior: Beta(a + k, b + n - k)
-a_post <- a + k
-b_post <- b + n - k
-
-# Secuencia de valores de theta
-theta <- seq(0.1, 0.999, length.out = 1000)
-
-# Densidades
-prior <- dbeta(theta, a, b)
-likelihood <- theta^k * (1 - theta)^(n - k)
-likelihood <- likelihood / max(likelihood)  # normalizar para comparar
-posterior <- dbeta(theta, a_post, b_post)
-
-# Data frame para graficar
-df <- data.frame(
-  theta = theta,
-  Prior = prior,
-  Verosimilitud = likelihood,
-  Posterior = posterior
-)
-
-# Pasar a formato largo para ggplot
-df_long <- tidyr::pivot_longer(df, -theta, names_to = "Distribución", values_to = "Densidad")
-
-# Gráfica
-ggplot(df_long, aes(x = theta, y = Densidad, color = Distribución)) +
-  geom_line(size = 1) +
-  labs(title = "Primer corte (25%)", x = expression(theta), y = "Densidad") +
-  theme_bw()
-
-# Estimaciones
-media_post <- a_post / (a_post + b_post)
-intervalo_teorico <- qbeta(c(0.025, 0.975), a_post, b_post)
-sim <- rbeta(10000, a_post, b_post)
-intervalo_simulado <- quantile(sim, c(0.025, 0.975))
-
-# Mostrar resultados
-cat("Media posterior:", media_post, "\n")
-cat("Intervalo creíble teórico (95%):", intervalo_teorico, "\n")
-cat("Intervalo creíble simulado (95%):", intervalo_simulado, "\n")
-
-```
-
-
-
+Sea la distribucion Uniforme(0,1), equivalente a la Beta(1,1)
 
 
 ```{r}
-Estimadores_T = function(a,b,x,c){
-  n=length(x)
-  media_T = (a+sum(x))/(b+n)
-  mediana_T = qgamma(0.5,a+sum(x),b+n)
-  Moda_T = (a+sum(x)-1)/(b+n)
-  I_cre = qgamma(c(c/2,1-c/2),a+sum(x),b+n)
-  list(Media=media_T,Mediana=mediana_T,
-       Moda=Moda_T,
-       Intervalo=I_cre)
+for(i in 1:4){
+  df_plot <- sim_teoria_Elecciones(1, 1, votantes[i], total * i * 0.25)
+  
+  print(
+    ggplot(df_plot, aes(x = theta, y = Densidad, color = Distribucion)) +
+      geom_line(size = 1) +
+      theme_minimal() +
+      labs(
+        title =  "Distribuciones: prior, verosimilitud y posterior",
+        subtitle = paste("con num. votantes =", votantes[i], 
+                         "y num total de votantes =", total * i * 0.25),
+        x = expression(theta),
+        y = "Densidad"
+      ) + 
+      annotate("text",
+        x = 0.005,
+        y = max(df_plot$Densidad) * 0.9,
+        hjust = 0,
+        size = 4,
+        label = paste0(
+          " -Con una media de: ", round(medidas_Eleccciones(1, 1, votantes[i], total * i * 0.25)$Media, 5), 
+          " y un intervalo \nde: (", round(medidas_Eleccciones(1, 1, votantes[i], total * i * 0.25)$Intervalo[1], 5), ",",
+                                   round(medidas_Eleccciones(1, 1, votantes[i], total * i * 0.25)$Intervalo[2], 5), ")", " (Forma Teórica)",
+          "\n -Con una media de: ", round(medidas_Eleccciones(1, 1, votantes[i], total * i * 0.25)$Media_Sim, 5),
+          " y un intervalo \nde: (", round(medidas_Eleccciones(1, 1, votantes[i], total * i * 0.25)$Intervalo_Sim[1], 5), ",",
+                                     round(medidas_Eleccciones(1, 1, votantes[i], total * i * 0.25)$Intervalo_Sim[2], 5), ")", " (Forma Simulada)"
+        )
+      )
+  )
 }
+
+      
 ```
 
+# Concluir 
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit
+Lorem ipsum dolor sit amet, consectetur adipiscing elit
+Lorem ipsum dolor sit amet, consectetur adipiscing elit
+Lorem ipsum dolor sit amet, consectetur adipiscing elit
+Lorem ipsum dolor sit amet, consectetur adipiscing elit
+Lorem ipsum dolor sit amet, consectetur adipiscing elit

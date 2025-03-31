@@ -40,6 +40,8 @@ a=20;b=2
 x=rpois(104,10)
 
 Teoricos = Estimadores_T(a,b,x,0.05)
+
+print(Teoricos)
 Simulados = Estimadores_S(a,b,x,1000,0.05)
 
 Intervalos = as.data.frame(rbind(Teoricos$Intervalo,
