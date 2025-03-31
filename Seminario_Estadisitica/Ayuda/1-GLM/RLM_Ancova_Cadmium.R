@@ -113,7 +113,7 @@ summary(fit)
 #Este modelo considera tres diferentes rectas, una para cada grupo
 
 #Se rechaza H0 en la prueba asociada
-#a la tabla ANOVA (p-value: 0.000592), 
+#a la tabla ANOVA (p-value: 0.000592),
 #entonces el modelo tiene sentido.
 #Es decir, la edad o el nivel de exposici�n ayudan a modelar la E(Y).
 
@@ -122,6 +122,8 @@ summary(fit)
 #Si no se rechaza, podr�amos optar por un modelo con igualdad de 
 #pendientes o rectas paralelas (facilita la interpretaci�n)
 #H0: b4=0 y b5=0 vs Ha: b4!=0 o b5!=0
+
+# E(y;x)= b0 + b1 age + b2 Low + b3 No + b4(age*Low) + b5(age*No) # +b6 (age^2*Low)
 
 # Se realiza una prueba lineal general
 library(multcomp)
@@ -171,6 +173,10 @@ summary(glht(fit, linfct=K, rhs=m))
 #Ajustemos el modelo reducido que s�lo considera a (age*No)
 #Este nuevo modelo corresponde a
 # E(y;x)= b0 + b1 age + b2 Low + b3 No + b4(age*No)
+
+
+#Solo para comparar el modelo reducido con el modelo completo
+# E(y;x)= b0 + b1 age + b2 Low + b3 No + b4(age*Low) + b5(age*No)
 
 fitred <- lm(vitcap ~ age + group + I(age*(group=="No")), data = CADdata) 
 summary(fitred)
@@ -290,7 +296,7 @@ library(car)
 residualPlots(fit)
 
 
-### Uso del modelo
+### Uso del modelo-------------------------------------------------------------------------------------------------------------
 
 # Algunas pruebas gen�ricas de inter�s en este problema
 
