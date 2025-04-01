@@ -30,15 +30,33 @@ library(dplyr)
 library(ggplot2)
 library(esquisse) #Manejo grafico de datos
 #esquisser(my_data)
-
+library("multcomp") 
 
 library(DHARMa) #simula datos bajo el modelo ajustado y compara los residuales simulados con los residuales observado
 
 ```
 
+```{r Funciones_Inversas}
+# Función inversa del logit
+inv_logit <- function(eta) {
+  exp(eta) / (1 + exp(eta))
+}
+
+# Función inversa del probit
+inv_probit <- function(eta) {
+  pnorm(eta)  # Φ(η)
+}
+
+# Función inversa del cloglog
+inv_cloglog <- function(eta) {
+  1 - exp(-exp(eta))
+}
+```
+
+
 
 ```{r}
-data
+data$Insecticide <- factor(data$Insecticide, levels = c("A", "B", "C")) #Convirtiendolo a factores nuestros datos
 #esquisser(data)
 
 ```
@@ -67,59 +85,252 @@ ggplot(data) +
 ```
 Con esta grafica podemos intuir que el insecticda C, mata a mas insectos sin importar la dosis, pero que si aplicas la dosis de 8mg puedes llegar a matar a casito todos o todos los insextos, mientas que en los insecticidas del tipo A y B, si usas la dosis minima casi no matas insectos por lo que debes incrementarla 
 
+
+## Ajustando el modelo con interacción cuadrática:   \( \text{Insecticide} * (\log(\text{Deposit}) \)
+
+```{r Ajustando_los_modelos}
+modeloLogit <- glm(cbind(Killed, Number - Killed) ~ Insecticide * I(log(Deposit)), 
+    data = data, family = binomial(link = "logit"))
+
+modeloProbit <- glm(cbind(Killed, Number - Killed) ~ Insecticide * I(log(Deposit)),
+    data = data, family = binomial(link = "probit"))
+
+modeloCloglog <- glm(cbind(Killed, Number - Killed) ~ Insecticide * I(log(Deposit)),
+    data = data, family = binomial(link = "cloglog"))
+
+```
+
+Para cada modelo binomial con función liga \( g_i(\cdot) \), donde:
+
+- \( g_1(\cdot) \) es la función **logit**,
+- \( g_2(\cdot) \) es la función **probit**,
+- \( g_3(\cdot) \) es la función **cloglog**,
+
+### Expresiones del componente lineal
+
+El modelo general ajustado es:
+
+\[
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide}, \log D]\right) = \beta_0 + \beta_1 \cdot \text{Insecticide}_B + \beta_2 \cdot \text{Insecticide}_C + \beta_3 \cdot \log D + \beta_4 \cdot \text{Insecticide}_B \cdot \log D + \beta_5 \cdot \text{Insecticide}_C \cdot \log D
+\]
+
+
+#### Componentes lineales por insecticida:
+
+- **Insecticida A** (categoría de referencia):
+
+\[
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide} = A, \log D]\right) = \beta_0 + \beta_3 \cdot \log D
+\]
+
+- **Insecticida B**:
+
+\[
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide} = B, \log D]\right) = \beta_0 + \beta_1 + (\beta_3 + \beta_4) \cdot \log D
+\]
+
+- **Insecticida C**:
+
+\[
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide} = C, \log D]\right) = \beta_0 + \beta_2 + (\beta_3 + \beta_5) \cdot \log D
+\]
+
+### Expresiones componente lineal 
+
+Este intercepto se obtiene cuando usamos el insecticida **A** y una dosis de **1 mg** (ya que \( \log(1) = 0 \)). Si aplicamos la **función inversa** de la liga \( g_i \), con \( i \in \{1, 2, 3\} \), obtenemos la **probabilidad de que un insecto muera** con ese tratamiento.
+
+Calculando el Intercepto y la probabilidad de muerte con el insecticida **A** y una dosis de **1 mg**:
+
+- De la liga Logit obtenemos: `r unname(coef(modeloProbit)[1])` ,donde p= `r inv_logit(unname(coef(modeloProbit)[1]))`
+
+- De la liga Probit obtenemos: `r unname(coef(modeloLogit)[1])`, donde p= `r inv_probit(unname(coef(modeloLogit)[1]))`
+
+- De la liga Cloglog obtenemos: `r unname(coef(modeloCloglog)[1])`, donde p= `r inv_cloglog(unname(coef(modeloCloglog)[1]))`
+
+
+### Seleccion de nuestro modelo
+
+Usando la funcion AIC y   BIC podemos ver que puntuaje tienen nuestros modelos:
+
+Liga Logit: AIC de: `r AIC(modeloLogit)` y BIC de: `r BIC(modeloLogit)`
+
+Liga Probit: AIC de: `r AIC(modeloProbit)` y BIC de: `r BIC(modeloProbit)`
+
+Liga Cloglog: AIC de: `r AIC(modeloCloglog)` y BIC de: `r BIC(modeloCloglog)`
+
+Con el intercepto y las funciones AIC, BIC, podemos concluir que el mejor modelo fue el de ligga Probit, ya que tiene el menor AIC y BIC, y el intercepto concerdo con los datos presentados, con 1 mg de medicamento en el Insecticida A, la probabilidad de matar a un Insecto es casi 0.
+
+```{r}
+#summary(modeloLogit)
+
+#summary(modeloProbit)
+
+#summary(modeloCloglog)
+```
+
+## Ajustando el modelo con interacción cuadrática:   \( \text{Insecticide} * (\log(\text{Deposit}) + (\log(\text{Deposit}))^2) \)
+
+
+
+```{r Ajustando_los_modelos2}
+
+# Ajustando modelos con términos cuadráticos e interacciones completas
+modeloLogit2 <- glm(cbind(Killed, Number - Killed) ~ Insecticide * (I(log(Deposit)) + I(log(Deposit)^2)),
+                    data = data, family = binomial(link = "logit"))
+
+modeloProbit2 <- glm(cbind(Killed, Number - Killed) ~ Insecticide * (I(log(Deposit)) + I(log(Deposit)^2)),
+                     data = data, family = binomial(link = "probit"))
+
+modeloCloglog2 <- glm(cbind(Killed, Number - Killed) ~ Insecticide * (I(log(Deposit)) + I(log(Deposit)^2)),
+                      data = data, family = binomial(link = "cloglog"))
+
+
+```
+
+
+### Expresiones del componente lineal con término cuadrático
+
+
+
+El modelo ajustado con interacción cuadrática es:
+
+\[
+\begin{aligned}
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide}, \log D]\right) =\ & \beta_0 
++ \beta_1 \cdot \text{Insecticide}_B 
++ \beta_2 \cdot \text{Insecticide}_C \\
+&+ \beta_3 \cdot \log D 
++ \beta_4 \cdot (\log D)^2 \\
+&+ \beta_5 \cdot \text{Insecticide}_B \cdot \log D 
++ \beta_6 \cdot \text{Insecticide}_C \cdot \log D \\
+&+ \beta_7 \cdot \text{Insecticide}_B \cdot (\log D)^2 
++ \beta_8 \cdot \text{Insecticide}_C \cdot (\log D)^2
+\end{aligned}
+\]
+
+
+
+#### Componentes lineales por insecticida (modelo con término cuadrático):
+
+- **Insecticida A** (categoría de referencia):
+
+\[
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide} = A, \log D]\right) 
+= \beta_0 + \beta_3 \cdot \log D + \beta_4 \cdot (\log D)^2
+\]
+
+- **Insecticida B**:
+
+\[
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide} = B, \log D]\right) 
+= \beta_0 + \beta_1 + (\beta_3 + \beta_5) \cdot \log D + (\beta_4 + \beta_7) \cdot (\log D)^2
+\]
+
+- **Insecticida C**:
+
+\[
+g_i\left(\mathbb{E}[Y \mid \text{Insecticide} = C, \log D]\right) 
+= \beta_0 + \beta_2 + (\beta_3 + \beta_6) \cdot \log D + (\beta_4 + \beta_8) \cdot (\log D)^2
+\]
+
+
+
+### Expresiones del componente lineal (modelo con término cuadrático)
+
+Este intercepto se obtiene cuando se usa el insecticida **A** y una dosis de **1 mg** (ya que \( \log(1) = 0 \), y por lo tanto también \( (\log(1))^2 = 0 \)). Al aplicar la **función inversa** de la liga \( g_i \), con \( i \in \{1, 2, 3\} \), se obtiene la **probabilidad de que un insecto muera** bajo esa condición.
+
+Calculando el Intercepto y la probabilidad de muerte con el insecticida **A** y una dosis de **1 mg**:
+
+- De la liga **Logit** obtenemos: `r unname(coef(modeloLogit2)[1])`  donde p= **Logit**: `r inv_logit(unname(coef(modeloLogit2)[1]))`
+- De la liga **Probit** obtenemos: `r unname(coef(modeloProbit2)[1])` donde p= **Probit**: `r inv_probit(unname(coef(modeloProbit2)[1]))`
+- De la liga **Cloglog** obtenemos: `r unname(coef(modeloCloglog2)[1])`  donde p= **Cloglog**: `r inv_cloglog(unname(coef(modeloCloglog2)[1]))`
+
+
+### Selección del modelo
+
+Usando los criterios de información AIC y BIC, comparamos el ajuste de los modelos con término cuadrático:
+
+- **Logit**: AIC = `r AIC(modeloLogit2)`, BIC = `r BIC(modeloLogit2)`
+- **Probit**: AIC = `r AIC(modeloProbit2)`, BIC = `r BIC(modeloProbit2)`
+- **Cloglog**: AIC = `r AIC(modeloCloglog2)`, BIC = `r BIC(modeloCloglog2)`
+
+**Conclusión**:
+
+Observamos que con un AIC de  `r AIC(modeloProbit2)` y BIC = `r BIC(modeloProbit2)` a ademas de su intercepto `r unname(coef(modeloProbit2)[1])`, el mejor modelos es el que añade al termino (\log D)^2 con sus interacciones, haciendo que el modelo sea mas preciso y se ajuste mejor a los datos presentados.
+
+
+
+
+```{r}
+#summary(modeloCloglog2)
+```
+```{r verificacion_de_supuestos1, echo=TRUE}
+# Verificación de supuestos
+k_red = matrix(c(0,1,0,0,0,1,0,1,0,
+                 0,1,-1,0,0,1,-1,1,-1,
+                 0,0,1,0,0,0,1,0,1), ncol=9, nrow = 3,  byrow=TRUE)
+
+summary(glht(modeloProbit2, linfct = k_red, rhs = c(0,0,0)) )
+
+```
+
+
+```{r verificacion_de_supuestos2, echo=TRUE}
+# Verificación de supuestos
+k_red = matrix(c(0,1,0,0,0,1,0,1,0,
+                 0,1,-1,0,0,1,-1,1,-1,
+                 0,0,1,0,0,0,1,0,1), ncol=9, nrow = 3,  byrow=TRUE)
+
+summary(glht(modeloProbit2, linfct = k_red, rhs = c(0,0,0)),  test=Chisqtest() )
+
+```
+```{r verificacion_de_supuestos3, echo=TRUE}
+# Verificación de supuestos
+k_red = matrix(c(0,1,0,0,0,1,0,1,0), ncol=9, nrow = 1,  byrow=TRUE)
+
+summary(glht(modeloProbit2, linfct = k_red, rhs = c(0)),  test=Chisqtest() )
+
+```
+
+Con estas pruebas de hipotesis, podemos concluir que el Inceticida B  no es significativo y lo podemos quitar de nuestro estudio
+
+
 ```{r}
 
+dataFil <- data %>% filter(Insecticide != "B")
+
+
+
+
+
+glmPobit <- glm(cbind(Killed, Number - Killed) ~ Insecticide * (I(log(Deposit)) + I(log(Deposit)^2)),
+                     data = dataFil, family = binomial(link = "probit"))
 ```
 
 
 
 ```{r}
-#Hay 4 ligas que se podrían usar:
-fitlogit=glm(Y~X*Z, family = binomial(link="logit"), data=Datos)
-summary(fitlogit)
-
-fitprob=glm(Y~X*Z, family = binomial(link="probit"), data=Datos)
-summary(fitprob)
-
-fitlog=glm(Y~X*Z, family = binomial(link="log"), data=Datos)
-summary(fitlog)
-
-fitcll=glm(Y~X*Z, family = binomial(link="cloglog"), data=Datos)
-summary(fitcll)
-
-
+summary(glmPobit)
 ```
+Por lo tanto nuesto modelo seleccionado es: 
+
+\[
+\begin{aligned}
+\text{Probit}\left(\mathbb{E}[Y \mid \text{Insecticide}, \log D]\right) =\ 
+& \beta_0 
++ \beta_2 \cdot \text{Insecticide}_C 
++ \beta_3 \cdot \log D 
++ \beta_4 \cdot (\log D)^2 \\
+&+ \beta_6 \cdot \text{Insecticide}_C \cdot \log D 
++ \beta_8 \cdot \text{Insecticide}_C \cdot (\log D)^2
+\end{aligned}
+\]
 
 
 ```{r}
+#Prueba ANOVA
 
-```
-
-
-```{r}
-
-```
-
-
-```{r}
-
-```
-
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-
-
-```{r}
-
+anova(glmPobit,modeloProbit2)
 ```
 
 
