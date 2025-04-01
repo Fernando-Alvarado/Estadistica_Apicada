@@ -330,7 +330,11 @@ Por lo tanto nuesto modelo seleccionado es:
 ```{r}
 #Prueba ANOVA
 
-anova(glmPobit,modeloProbit2)
+#anova(glmPobit,modeloProbit2)
+
+AIC(glmPobit)
+
+
 ```
 
 

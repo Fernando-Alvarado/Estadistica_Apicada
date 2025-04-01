@@ -2,7 +2,7 @@
 ### con datos binarios
 
 ### Parte 2. Comparación de modelos con diferentes funciones ligas,
-### verificación de supuestos e interpretación.
+### verificación de supuestos e interpretación. 
 
 rm(list = ls(all.names = TRUE))
 gc()

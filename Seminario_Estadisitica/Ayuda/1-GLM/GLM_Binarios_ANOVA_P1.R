@@ -180,7 +180,7 @@ summary(fit3r2)
 pchisq(fit3r2$deviance, df=fit3r2$df.residual, lower.tail=FALSE)
 anova(fit3c, fit3r2, test = "Chisq")
 
-# No importa el formato de los datos
+s# No importa el formato de los datos
 fit1c=glm(I(Y=="Yes")~X*Z, family = binomial(link="logit"), weights= n, data=DatosAg)
 fit1r2=glm(I(Y=="Yes")~X, family = binomial(link="logit"), weights= n, data=DatosAg)
 anova(fit1c, fit1r2, test = "Chisq")
