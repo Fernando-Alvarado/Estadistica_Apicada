@@ -295,46 +295,138 @@ summary(glht(modeloProbit2, linfct = k_red, rhs = c(0)),  test=Chisqtest() )
 Con estas pruebas de hipotesis, podemos concluir que el Inceticida B  no es significativo y lo podemos quitar de nuestro estudio
 
 
-```{r}
+```{r, echo=TRUE}
 
 dataFil <- data %>% filter(Insecticide != "B")
+     
+
+ #modelo_reducido <- lm(Puntaje ~   Trat +I((Trat == 'Trat1')*(Sexo == 'Mujer')), data = data) 
 
 
 
+modeloReducido <- glm(cbind(Killed, Number - Killed) ~ I(Insecticide == 'C') * (I(log(Deposit)) + I(log(Deposit)^2)),
+                     data = data, family = binomial(link = "probit"))
+
+#anova(glmPobit,modeloProbit2)
+anova(modeloReducido, modeloProbit2)
 
 
-glmPobit <- glm(cbind(Killed, Number - Killed) ~ Insecticide * (I(log(Deposit)) + I(log(Deposit)^2)),
-                     data = dataFil, family = binomial(link = "probit"))
+```
+```{r}
+summary(modeloReducido)
+```
+
+No hay evidencia estadísticamente significativa para decir que el modelo completo mejora el ajuste respecto al modelo reducido. Dado que el p-value es 0.3859
+
+
+```{r , echo=FALSE}
+
+AIC(modeloProbit2)
+
+AIC(modeloReducido)
+```
+```{r, , echo=TRUE}
+modeloReducido2 <- glm(cbind(Killed, Number - Killed) ~ I(Insecticide == 'C') + (I(log(Deposit)) + I(log(Deposit)^2)),
+                     data = data, family = binomial(link = "probit"))
+
+
+
+#summary(modeloReducido2)
+
+#- **Hipótesis nula \( H_0 \)**:  
+# Los coeficientes adicionales en el modelo completo son cero.  
+#  Es decir, **el modelo reducido es suficiente** para explicar los datos.
+
+#- **Hipótesis alternativa \( H_a \)**:  
+# Al menos uno de los coeficientes adicionales es distinto de cero.  
+#Es decir, **el modelo completo mejora significativamente el ajuste**.
+
+anova(modeloReducido2, modeloReducido)
 ```
 
 
+```{r ,  echo=FALSE}
+AIC(modeloReducido)
+
+AIC(modeloReducido2)
+
+
+```
 
 ```{r}
-summary(glmPobit)
+summary(modeloReducido2)
 ```
+
+
+
 Por lo tanto nuesto modelo seleccionado es: 
 
 \[
-\begin{aligned}
-\text{Probit}\left(\mathbb{E}[Y \mid \text{Insecticide}, \log D]\right) =\ 
-& \beta_0 
-+ \beta_2 \cdot \text{Insecticide}_C 
-+ \beta_3 \cdot \log D 
-+ \beta_4 \cdot (\log D)^2 \\
-&+ \beta_6 \cdot \text{Insecticide}_C \cdot \log D 
-+ \beta_8 \cdot \text{Insecticide}_C \cdot (\log D)^2
-\end{aligned}
+\text{Probit}\left(\mathbb{E}[Y \mid \text{Insecticide}, \log D]\right) =
+\beta_0 + \beta_1 \cdot \mathbb{1}_{\{\text{Insecticide} = \text{C}\}} 
++ \beta_2 \cdot \log D 
++ \beta_3 \cdot (\log D)^2
 \]
 
 
-```{r}
-#Prueba ANOVA
+## Poniendo a prueba nuestro modelo seleccionado
 
-#anova(glmPobit,modeloProbit2)
 
-AIC(glmPobit)
+```{r echo=FALSE}
+# 1. Crear la cuadrícula con número de insectos promedio
+grid <- expand.grid(
+  Insecticide = c("A", "C"),
+  Deposit = seq(min(data$Deposit), max(data$Deposit), length.out = 100)
+)
+
+# 2. Asignar número promedio de insectos por condición (puedes ajustar esto si es necesario)
+grid$Number <- 50  # o 45 si quieres mantenerlo más bajo
+
+# 3. Obtener probabilidad predicha y luego muertes esperadas
+grid$prob <- predict(modeloReducido2, newdata = grid, type = "response")
+grid$Killed_pred <- grid$prob * grid$Number
+
+ggplot(data) +
+  aes(x = Deposit, y = Killed, colour = Insecticide, size = Number) +
+  geom_point(alpha = 0.7) +
+  scale_size_continuous(
+    range = c(2, 10),
+    breaks = c(30, 35, 40, 45, 50),
+    name = "Number of Insects"
+  ) +
+  geom_line(data = grid, aes(x = Deposit, y = Killed_pred, colour = Insecticide), size = 1) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
 
 
 ```
+```{r echo=FALSE}
+# 1. Crear la cuadrícula con número de insectos promedio
+grid <- expand.grid(
+  Insecticide = c("A","B",  "C"),
+  Deposit = seq(min(data$Deposit), max(data$Deposit), length.out = 100)
+)
+
+# 2. Asignar número promedio de insectos por condición (puedes ajustar esto si es necesario)
+grid$Number <- 50  # o 45 si quieres mantenerlo más bajo
+
+# 3. Obtener probabilidad predicha y luego muertes esperadas
+grid$prob <- predict(modeloProbit2, newdata = grid, type = "response")
+grid$Killed_pred <- grid$prob * grid$Number
+
+ggplot(data) +
+  aes(x = Deposit, y = Killed, colour = Insecticide, size = Number) +
+  geom_point(alpha = 0.7) +
+  scale_size_continuous(
+    range = c(2, 10),
+    breaks = c(30, 35, 40, 45, 50),
+    name = "Number of Insects"
+  ) +
+  geom_line(data = grid, aes(x = Deposit, y = Killed_pred, colour = Insecticide), size = 1) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+
+```
+
 
 
