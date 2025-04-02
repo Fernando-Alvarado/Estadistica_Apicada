@@ -284,15 +284,6 @@ k_red = matrix(c(0,1,0,0,0,1,0,1,0,
 summary(glht(modeloProbit2, linfct = k_red, rhs = c(0,0,0)),  test=Chisqtest() )
 
 ```
-```{r verificacion_de_supuestos3, echo=TRUE}
-# Verificación de supuestos
-k_red = matrix(c(0,1,0,0,0,1,0,1,0), ncol=9, nrow = 1,  byrow=TRUE)
-
-summary(glht(modeloProbit2, linfct = k_red, rhs = c(0)),  test=Chisqtest() )
-
-```
-
-Con estas pruebas de hipotesis, podemos concluir que el Inceticida B  no es significativo y lo podemos quitar de nuestro estudio
 
 
 ```{r, echo=TRUE}
@@ -359,6 +350,106 @@ summary(modeloReducido2)
 
 
 
+```{r echo=FALSE}
+# 1. Crear la cuadrícula con número de insectos promedio
+grid <- expand.grid(
+  Insecticide = c("A","B",  "C"),
+  Deposit = seq(min(data$Deposit), max(data$Deposit), length.out = 100)
+)
+
+# 2. Asignar número promedio de insectos por condición (puedes ajustar esto si es necesario)
+grid$Number <- 50  # o 45 si quieres mantenerlo más bajo
+
+# 3. Obtener probabilidad predicha y luego muertes esperadas
+grid$prob <- predict(modeloProbit2, newdata = grid, type = "response")
+grid$Killed_pred <- grid$prob * grid$Number
+
+ggplot(data) +
+  aes(x = Deposit, y = Killed, colour = Insecticide, size = Number) +
+  geom_point(alpha = 0.7) +
+  scale_size_continuous(
+    range = c(2, 10),
+    breaks = c(30, 35, 40, 45, 50),
+    name = "Number of Insects"
+  ) +
+  geom_line(data = grid, aes(x = Deposit, y = Killed_pred, colour = Insecticide), size = 1) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+
+```
+
+### Dosis Minima para matar al menos 70% de los insectos 
+
+
+```{r}
+valor <- qnorm(0.7, mean = 0, sd = 1)
+```
+```{r, dosis minima  }
+a <- exp(1.952881 )  # Dosis A
+
+b <- exp(1.719986) # Bosis B
+
+b <- exp(0.8977994) # Dosis C
+```
+Usando la funcion inversa Probit^(-1)(0.7) para igualar nuesto sistema, obtenemos que la dosis minima para matar al 70% de los insectos es de  `r a` para el insecticida A, `r b` para el insecticida B y `r c` para el insecticida C
+
+
+```{r, echo=FALSE}
+chicharronera <- function(a, b, c) {
+  discriminante <- b^2 - 4*a*c
+  
+  if (discriminante > 0) {
+    x1 <- (-b + sqrt(discriminante)) / (2*a)
+    x2 <- (-b - sqrt(discriminante)) / (2*a)
+    return(c(real1 = x1, real2 = x2))
+    
+  } else if (discriminante == 0) {
+    x <- -b / (2*a)
+    return(c(double_root = x))
+    
+  } else {
+    real <- -b / (2*a)
+    imag <- sqrt(abs(discriminante)) / (2*a)
+    return(c(complejo1 = paste0(real, " + ", imag, "i"),
+             complejo2 = paste0(real, " - ", imag, "i")))
+  }
+}
+
+#2x 2+3x−10
+#chicharronera(2, 3, -10)
+
+chicharronera( -0.7166,  3.3032,  -2.388)
+```
+```{r Preuba_Hip-C_mejor}
+# Verificación de supuestos
+k_C_besta = matrix(c(
+                 0,-1,1,0,0,-1,1,-1,1,
+                 0,0,1,0,0,0,1,0,1
+                 ), ncol=9, nrow = 2,  byrow=TRUE)
+
+summary(glht(modeloProbit2, linfct = k_C_besta,  rhs = c(0, 0), alternative = "less"), test = Chisqtest())
+```
+
+
+### Qun insecticida es mejor
+
+De la pregunta antenrior podemos ver que el mejor insecticida es el C, ya que con menor dosis estamso elimando al 70% de los insectos, panteamos la preuba de hipotesis que Incecticida A y B son mejores que C y con un p-value de 2.232301e-26, rechazamos estadisticamente esta afrimacion, por lo que el mejor insecticida es el C
+
+
+
+### que los insecticidas A y B tienen un desempeño similar?
+
+
+```{r verificacion_de_supuestos3, echo=TRUE}
+# Verificación de supuestos
+k_red2 = matrix(c(0,1,0,0,0,1,0,1,0), ncol=9, nrow = 1,  byrow=TRUE)
+
+summary(glht(modeloProbit2, linfct = k_red2, rhs = c(0)),  test=Chisqtest() )
+
+```
+
+Con estas pruebas de hipotesis, podemos concluir que el Inceticida B  no es significativo y lo podemos quitar de nuestro estudio
+
 Por lo tanto nuesto modelo seleccionado es: 
 
 \[
@@ -400,33 +491,3 @@ ggplot(data) +
 
 
 ```
-```{r echo=FALSE}
-# 1. Crear la cuadrícula con número de insectos promedio
-grid <- expand.grid(
-  Insecticide = c("A","B",  "C"),
-  Deposit = seq(min(data$Deposit), max(data$Deposit), length.out = 100)
-)
-
-# 2. Asignar número promedio de insectos por condición (puedes ajustar esto si es necesario)
-grid$Number <- 50  # o 45 si quieres mantenerlo más bajo
-
-# 3. Obtener probabilidad predicha y luego muertes esperadas
-grid$prob <- predict(modeloProbit2, newdata = grid, type = "response")
-grid$Killed_pred <- grid$prob * grid$Number
-
-ggplot(data) +
-  aes(x = Deposit, y = Killed, colour = Insecticide, size = Number) +
-  geom_point(alpha = 0.7) +
-  scale_size_continuous(
-    range = c(2, 10),
-    breaks = c(30, 35, 40, 45, 50),
-    name = "Number of Insects"
-  ) +
-  geom_line(data = grid, aes(x = Deposit, y = Killed_pred, colour = Insecticide), size = 1) +
-  scale_color_hue(direction = 1) +
-  theme_minimal()
-
-```
-
-
-
