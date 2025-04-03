@@ -1,0 +1,87 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+library(dplyr)      # Para el manejo de datos
+library(tidyr)
+
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(knitr)
+library(purrr)      # Para la función map y map2
+
+
+# Para purebas de hipotesis
+
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(purrr)      # Para la función map y map2
+library(lmtest )    #Checar homoceasticidad
+library(nortest )
+
+
+
+#Extrayendo nuestra datas
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Proyecto_1/Ejercicio_4/Data")
+
+data <- read.csv("./Preg4.csv")
+
+
+```
+
+
+# Analisis de casos de cancer de Pulmon
+
+Los datoa contienen informacion sobre el numero de casos de cancer de pulmon, que fueron de 1968 y 1971, en cuatro ciudades de Dinamarca. En estos casos se registro tambien la edad de los pacientes, que fue categorizada en 5 grupos. El interes del analisis es estudiar si se puede indicar que a mayor edad existe mayor incidencia de cancer de pulmon.
+
+
+
+
+
+```{r}
+head(data)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
