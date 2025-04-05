@@ -1,7 +1,6 @@
 ---
-output: html_document
+output: pdf_document
 ---
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
@@ -16,16 +15,17 @@ library(tidyr)
 
 ```
 
-```{r}
+```{r echo=FALSE}
 #Hiper parametros 
 votantes = c(130832, 229927, 347262, 426871)
 
 total = 900 * 750
 
 simulaciones = 10000
+
 ```
 
-```{r echo=TRUE}
+```{r echo=FALSE}
 sim_teoria_Elecciones <- function(a,b, muestra, total){
   # a, parametro 1 de nuestra distribucuon beta
   # b, parametro 2 de nuestra beta
@@ -150,11 +150,18 @@ for(i in 1:4){
       
 ```
 
-# Concluir 
+# Conclusiones 
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit
-Lorem ipsum dolor sit amet, consectetur adipiscing elit
-Lorem ipsum dolor sit amet, consectetur adipiscing elit
-Lorem ipsum dolor sit amet, consectetur adipiscing elit
-Lorem ipsum dolor sit amet, consectetur adipiscing elit
-Lorem ipsum dolor sit amet, consectetur adipiscing elit
+Algo que pude observar y que no me gustó de mi simulación fueron las escalas de la gráfica. Esto provoca que no se puedan interpretar bien entre ellas, ya que en el eje de densidad varían mucho, desde 6 unidades hasta 65. Lo que podemos observar en los datos es que la gráfica de la distribución posterior se deforma bastante (se hace muy picuda). Esto lo relaciono con la cantidad de votantes que tenemos y la proporción de votos obtenida.
+
+
+Otra cosa curiosa es la gráfica de la verosimilitud, que en todos los casos tiende a cero. Esto se debe a que es una distribución binomial y, por la cantidad de votantes, su valor se hace cero casi instantáneamente. Traté de escalar un poco los datos (aplicando una transformación exponencial), pero aun así, la verosimilitud seguía siendo cero.
+
+
+En el caso de la priori, es la que más se ve afectada por la escala de nuestros datos. Aunque siempre es una Beta(30, 20) o una uniforme, que en este caso es una Beta(1, 1), la diferencia visual se vuelve notable debido a la escala.
+
+
+En la última gráfica, en ambos incisos, podemos ver que nuestra distribución posterior se parece mucho y llega a las mismas medias y a los mismos intervalos de confianza. Para ambos casos, la media fue de 0.6324, con un intervalo de confianza de (0.63122, 0.63355). Esto podría indicarnos que, aunque tal vez la distribución a priori Beta(1,1) no era la mejor distribución inicial, dada la cantidad de muestra fue posible llegar a la misma distribución final.
+
+
+Otra cosa que podemos observar es que, en ambos casos, la media tanto simulada como teórica siempre estuvo dentro de los intervalos de confianza, y estos eran muy pequeños, lo que indica que nuestra simulación fue buena y que la media es un buen estimador.
