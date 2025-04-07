@@ -1,0 +1,207 @@
+---
+author: "Fernando Alvarado"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+#Librerias necesarias
+library(tidyverse)
+library(ggplot2)
+library(factoextra)
+library(dplyr)
+library(esquisse)
+library(scatterplot3d)
+library(factoextra)
+library(patchwork)
+
+
+```
+
+# AA
+
+
+```{r}
+#Cargamos los datos
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_3/Eje_5/Data")
+#Leyendo un txt
+datos <- read.table("heptathlon_2016.txt", header = TRUE, sep = "", stringsAsFactors = FALSE)
+
+```
+
+
+
+```{r}
+head(datos)
+```
+
+
+```{r PCA, echo=FALSE}
+#Realizamos un analisis de componentes principales
+
+#Limpieza d elos datos, para que todos nuestros datos sean numericos 
+datos_numericos <- datos[,-1] #Quirando la primera columna de los nombres de los equipos
+rownames(datos_numericos) <- datos$Team  #Paea seguir conservando los nombres de los equipos en nuestro DF
+
+
+pca <- prcomp(datos_numericos, scale. = TRUE)
+
+
+
+summary(pca)
+
+
+```
+
+
+```{r}
+#Grafica del Bracito 
+fviz_eig(pca, addlabels = TRUE, ylim = c(0, 100))
+```
+
+
+
+```{r}
+
+
+
+# Gráficas individuales
+g1 <- fviz_contrib(pca, choice = "var", axes = 1) + ggtitle("Contribucion al componente 1")
+g2 <- fviz_contrib(pca, choice = "var", axes = 2) + ggtitle("Contribucion al componente 2")
+g3 <- fviz_contrib(pca, choice = "var", axes = 3) + ggtitle("Contribucion al componente 3")
+
+# Lado a lado
+g1 + g2 + g3
+
+
+```
+
+```{r, echo=FALSE}
+#Interpretacion 
+
+cor(pca$x[,1:3], datos_numericos )
+```
+```{r}
+library(plotly)
+
+# Crear un biplot interactivo 3D para las variables
+pc_var <- as.data.frame(pca$rotation[, 1:3]) # Cargas (loadings)
+pc_var$varname <- rownames(pc_var)
+
+plot_ly(pc_var, x = ~PC1, y = ~PC2, z = ~PC3, type = 'scatter3d', mode = 'text+lines',
+        text = ~varname, line = list(color = 'blue')) %>%
+  layout(title = "Variables en espacio PCA 3D")
+
+```
+
+
+```{r}
+library(plotly)
+
+# Extraemos los loadings de las variables
+loadings <- as.data.frame(pca$rotation[, 1:3])
+loadings$varname <- rownames(loadings)
+
+# Creamos las flechas como segmentos desde el origen (0,0,0)
+fig <- plot_ly()
+
+for (i in 1:nrow(loadings)) {
+  fig <- fig %>%
+    add_trace(
+      type = "scatter3d",
+      mode = "lines+text",
+      x = c(0, loadings[i, 1]),
+      y = c(0, loadings[i, 2]),
+      z = c(0, loadings[i, 3]),
+      line = list(color = "blue"),
+      text = loadings$varname[i],
+      textposition = "top right",
+      name = loadings$varname[i],
+      showlegend = FALSE
+    )
+}
+
+# Layout del gráfico
+fig <- fig %>% layout(
+  title = "Variables en espacio PCA 3D",
+  scene = list(
+    xaxis = list(title = "PC1"),
+    yaxis = list(title = "PC2"),
+    zaxis = list(title = "PC3")
+  )
+)
+
+# Mostrar gráfico (importante en RMarkdown)
+fig
+
+
+```
+
+
+
+
+```{r}
+library(plotly)
+
+# Coordenadas de individuos
+pc_ind <- as.data.frame(pca$x[, 1:3])
+pc_ind$name <- rownames(pc_ind)
+
+plot_ly(pc_ind, x = ~PC1, y = ~PC2, z = ~PC3, type = 'scatter3d',
+        mode = 'text+markers', text = ~name, marker = list(size = 4)) %>%
+  layout(title = "Individuos en espacio PCA 3D")
+
+```
+
+```{r}
+fviz_pca_biplot(pca, axes = c(1, 3),
+                col.var = "contrib",
+                col.ind = "gray40",
+                repel = TRUE)
+
+```
+
+
+```{r}
+fviz_pca_biplot(pca, axes = c(1, 2),
+                col.var = "contrib",
+                col.ind = "gray40",
+                repel = TRUE)
+
+```
+```{r}
+fviz_pca_biplot(pca, axes = c(2, 3),
+                col.var = "contrib",
+                col.ind = "gray40",
+                repel = TRUE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
