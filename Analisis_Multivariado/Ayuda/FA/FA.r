@@ -13,7 +13,11 @@ library(GPArotation)
 # Calificaciones Ejemplo                                                       
 
 # Leer los datos
-calificaciones=read.table(here("../Datos/calificaciones.txt"),header = T)
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Ayuda/FA")
+
+calificaciones=read.table("./calificaciones.txt",header = T)
+
+head(calificaciones)
 
 # Obtenemos matriz de correlación muestral
 R=round(cor(calificaciones),3);R

@@ -1,0 +1,123 @@
+---
+author: "Fernando Alvarado"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+# Librerías necesarias
+library(tidyverse)
+library(ggplot2)
+library(factoextra)
+library(dplyr)
+library(esquisse)
+library(scatterplot3d)
+library(patchwork)
+library(GGally)
+library(ggthemes)
+library(psych)
+library(here)
+library(expm)
+library(GPArotation)
+
+```
+
+```{r}
+# Cargar los datos
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_3/Eje_9/Data")
+#Leyendo un txt
+df <- read.csv("R_FA.txt", header = FALSE, check.names = FALSE)
+            # Elimina la fila y columna usadas para nombres
+cor_mat <- as.matrix(df)     # Convierte a matriz
+
+N = 123 #Numero de observaciones que tenemos en nuestro estudio
+
+cor_mat
+
+```
+
+
+```{r}
+fa.parallel(cor_mat, fa = "fa", n.obs = N, fm = "pa")
+
+```
+Esta función y grafica del paquete `psych` nos ayuda a determinar cuántos factores son necesarios conservar en nuestro análisis factorial. En este caso, el análisis paralelo sugiere conservar **dos factores**, ya que los dos primeros autovalores reales (línea azul) están claramente por encima de los autovalores simulados (línea punteada roja). El tercer autovalor está muy cerca del simulado, por lo que no aportaría información adicional significativa al modelo.
+
+
+
+```{r}
+# Realizamos factor de análisis principales sin rotación con 2 factor
+efa1=fa(r=cor_mat,nfactors=2,fm="pa",rotate="none")#-- modelo con 2 facotores
+efa1
+
+# Realizamos factor de análisis principales sin rotación con 3 facores
+efa2=fa(r=cor_mat,nfactors=3,fm="pa",rotate="none")# -- ya con tres factores explica mejor el comportamiento 
+efa2
+
+#Reusmen de la salida 
+
+#
+# PA1 y PA2, cargsa de cada uno de los factores
+# h2, comunalidad, proporcion de la varianza explicada por los factores
+# u2, varianza unica, proporcion de la varianza no explicada por los factores
+#
+```
+
+
+
+```{r Evaluando_modelo, echo=FALSE}
+
+
+# Asegúrate que no tiene clase errónea
+class(cor_mat) <- NULL
+
+# Asignar atributo de número de observaciones
+attr(cor_mat, "n.obs") <- 123
+
+# Ahora sí, correr el análisis factorial por máxima verosimilitud
+efa_mle <- fa(r = cor_mat, nfactors = 2, fm = "mle", rotate = "none")
+efa_mle$STATISTIC
+efa_mle$PVAL
+
+
+
+
+#efa1_mle$STATISTIC  # estadístico chi-cuadrado
+#efa1_mle$PVAL        # valor p
+
+
+```
+```{r}
+cor_obj <- list(r = cor_mat, n.obs = 123)
+class(cor_obj) <- "psych"
+
+efa_mle <- fa(cor_obj, nfactors = 2, fm = "mle", rotate = "none")
+efa_mle$STATISTIC
+efa_mle$PVAL
+
+```
+
+
+
+efa$STATISTIC
+efa$PVAL
+
+
+
+
+

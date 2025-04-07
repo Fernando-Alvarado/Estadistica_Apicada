@@ -86,8 +86,8 @@ Podemos notar que la varianza explicada por cada componente no disminuye de form
 
 
 # Gráficas individuales
-g1 <- fviz_contrib(pca, choice = "var", axes = 1) + ggtitle("Contribucion a componente 1")
-g2 <- fviz_contrib(pca, choice = "var", axes = 2) + ggtitle(",componente 2")
+g1 <- fviz_contrib(pca, choice = "var", axes = 1) + ggtitle("Contribucion a componente")
+g2 <- fviz_contrib(pca, choice = "var", axes = 2) + ggtitle("1 ,componente 2")
 g3 <- fviz_contrib(pca, choice = "var", axes = 3) + ggtitle(", componente 3")
 
 # Lado a lado
@@ -107,14 +107,14 @@ Por otro lado, el tercer componente está fuertemente influenciado por la prueba
 ```{r, echo=FALSE}
 #Interpretacion 
 
-cor(pca$x[,1:3], datos_numericos )
+#cor(pca$x[,1:3], datos_numericos )
 ```
 
 
 
 
 
-```{r}
+```{r, echo=FALSE, message=FALSE}
 library(plotly)
 
 loadings <- as.data.frame(pca$rotation[, 1:3])
@@ -168,7 +168,7 @@ fig <- fig %>%
 
 # Título y ejes
 fig <- fig %>% layout(
-  title = "Variables en espacio PCA 3D (mejorado con ejes)",
+  title = "Variables PCA, vistas en 3D",
   scene = list(
     xaxis = list(title = "PC1"),
     yaxis = list(title = "PC2"),
