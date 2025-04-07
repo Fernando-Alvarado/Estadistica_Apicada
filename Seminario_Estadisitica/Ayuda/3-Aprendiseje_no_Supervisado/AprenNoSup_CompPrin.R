@@ -1,10 +1,10 @@
 # Ejemplo del uso
-# de la técnica de componentes principales en R
+# de la tï¿½cnica de componentes principales en R
 
 rm(list = ls(all.names = TRUE))
 gc()
 
-setwd("~/GitHub/Notas 2025-2/ApreEstAut")
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Seminario_Estadisitica/Ayuda/3-Aprendiseje_no_Supervisado")
 library(tidyverse)
 # Datos
 # Los datos corresponden a los scores que se 
@@ -22,12 +22,12 @@ library(tidyverse)
 #Economics
 
 #Excepto para Housing y Crime, todos los scores 
-# están en el sentido
-# a mayor valor mejor calificación
+# estï¿½n en el sentido
+# a mayor valor mejor calificaciï¿½n
 #Para Housing y Crime el sentido es el contrario
-#es decir, a menor valor, mejor calificación
+#es decir, a menor valor, mejor calificaciï¿½n
 
-Datos=read.delim("places.txt",
+Datos=read.delim("./places.txt",
                   header = FALSE, sep='')
 names(Datos)=c("Clim", "Housing", "HealthEnv", "Crime", "Transp",  "Educ", "Arts", "Recre",  "Econ", "Id")
 summary(Datos)
@@ -37,25 +37,25 @@ X11()
 library(GGally)
 ggpairs(data=Datos[,-10], title="Datos")
 
-# El objetivo es tratar de encontrar uno o varios índices
-# para resumir la información
+# El objetivo es tratar de encontrar uno o varios ï¿½ndices
+# para resumir la informaciï¿½n
 
-# Se podrían usar los datos en la escala original, otra opción es
-# usar una escala logarítmica para trata de estandarizar
+# Se podrï¿½an usar los datos en la escala original, otra opciï¿½n es
+# usar una escala logarï¿½tmica para trata de estandarizar
 X11()
 ggpairs(data=log10(Datos[,-10]), title="Datos")
 
 
 # Una de las funciones para encontrar los componentes principales en R base
 # es prcomp(), la otra es princomp()
-# esta última permite dar la estimación de matriz de varianzas
+# esta ï¿½ltima permite dar la estimaciï¿½n de matriz de varianzas
 # y covarianzas a usar
 
 # scale es el argumento que permite escalar a varianza 1
 # (por default se centran los datos a media cero)
 
 # Los datos se pueden usar en formato dataframe con las columnas de X
-# o bien fórmula sin variable dependiente
+# o bien fï¿½rmula sin variable dependiente
 
 # Ejemplo usando la escala original
 R.CP=prcomp(Datos[,-10], scale = FALSE)
@@ -80,33 +80,33 @@ fviz_eig(R.CPb)
 fviz_pca_var(R.CPb,
              col.var = "contrib")
 
-# Más detalles en
+# Mï¿½s detalles en
 
 print(summary(R.CP), digits=3)
 round(R.CP$sdev^2, 2) #Varianzas de los CP, eigenvalores
 round(R.CP$rotation, 2) #Matriz con eigenvectores
-#Información usada en caso de estandarizar
+#Informaciï¿½n usada en caso de estandarizar
 round(R.CP$center, 2) #medias de las variables originales usadas para centrar los datos
 round(R.CP$scale, 2)  #desviacion estandar de las variables originales, 0 si scale=FALSE
-round(R.CP$x, 2) # Componentes principales de cada observación
+round(R.CP$x, 2) # Componentes principales de cada observaciï¿½n
 
 # Se pueden calcular las CP para nuevas observaciones
-# usando la función predict (será útil en predicción)
+# usando la funciï¿½n predict (serï¿½ ï¿½til en predicciï¿½n)
 predict(R.CP, newdata=Datos[2,-10])
 
 #Por ejemplo, si quisieramos calcular el CP1
-#para la observación 2, debemos notar que hay
-#que restar la media y después usar el eigenvector del CP1:
-R.CP$rotation[,1]%*%(t(Datos[2,-10])-R.CP$center) #cálculo de CP1 para obs 2
-t(R.CP$rotation[,1])%*%R.CP$rotation[,1] #verificación de condición a^ta=1
+#para la observaciï¿½n 2, debemos notar que hay
+#que restar la media y despuï¿½s usar el eigenvector del CP1:
+R.CP$rotation[,1]%*%(t(Datos[2,-10])-R.CP$center) #cï¿½lculo de CP1 para obs 2
+t(R.CP$rotation[,1])%*%R.CP$rotation[,1] #verificaciï¿½n de condiciï¿½n a^ta=1
 
-#### Para entender lo que se gráfica sobre contribuciones,
+#### Para entender lo que se grï¿½fica sobre contribuciones,
 #### se consideran los eigenvectores multiplicados
-#### por la raíz de la varianza de cada CP
-# Ver gráfica de contribuciones, el CP1:
+#### por la raï¿½z de la varianza de cada CP
+# Ver grï¿½fica de contribuciones, el CP1:
 R.CP$rotation[,1]*R.CP$sdev[1]
 
-###Ahora usando la escala logarítmica
+###Ahora usando la escala logarï¿½tmica
 R.CPlog=prcomp(log10(Datos[,-10]), scale = FALSE)
 print(summary(R.CPlog), digits=3)
 round(R.CPlog$sdev^2, 5)
@@ -116,45 +116,45 @@ round(R.CPlog$center, 2)
 predict(R.CPlog, newdata=log10(Datos[1,-10]))
 
 ##################
-# Lo anterior corresponde a la parte numérica.
-# Pero en el caso de creación de índices, sería
-# muy importante la interpretación.
+# Lo anterior corresponde a la parte numï¿½rica.
+# Pero en el caso de creaciï¿½n de ï¿½ndices, serï¿½a
+# muy importante la interpretaciï¿½n.
 
 # Esto se hace a partir de analizar las correlaciones
-# aunque se puede usar de apoyo la gráfica de contribuciones
+# aunque se puede usar de apoyo la grï¿½fica de contribuciones
 
 fviz_pca_var(R.CPlog,
              col.var = "contrib", axes = c(1, 2))
 options("scipen"=5, "digits"=2) 
 cor(R.CPlog$x[,1:3],log10(Datos[,-10]))
 
-# Posible interpretación del primer CP
+# Posible interpretaciï¿½n del primer CP
 
-# Notar la alta correlación (>.5) con cinco variables originales
+# Notar la alta correlaciï¿½n (>.5) con cinco variables originales
 # Arts, HealthEnv, Transp, Housing, Recre
-# En particular, esa correlación es positiva, es decir,
+# En particular, esa correlaciï¿½n es positiva, es decir,
 # a mayor valor de estos scores mayor valor del CP1.
 # Un posible resumen, es que este CP representa
 # un score de calidad sobre Arts, HealthEnv, Transp y Recre
 # al mismo tiempo que se observa un costo alto de Housing.
 
-# Esta interpretación podría ser díficil de entender,
-# una más simple es sólo considerar las dos variables
-# con correlaciones más fuertes: Arts y HealthEnv, 
+# Esta interpretaciï¿½n podrï¿½a ser dï¿½ficil de entender,
+# una mï¿½s simple es sï¿½lo considerar las dos variables
+# con correlaciones mï¿½s fuertes: Arts y HealthEnv, 
 # entonces, el CP1 refleja en mayor medida la calidad
 # de acceso a sitios culturales y de salud.
 
-# Posible interpretación del segundo CP
+# Posible interpretaciï¿½n del segundo CP
 
-#Este componente sólo tiene una variable con fuerte correlación:
+#Este componente sï¿½lo tiene una variable con fuerte correlaciï¿½n:
 # HealthEnv
-# Dado que la correlación es negativa se podría interpretar como
+# Dado que la correlaciï¿½n es negativa se podrï¿½a interpretar como
 # a mayor valor se tiene una menor calidad en acceso a la salud
 
 
 fviz_pca_var(R.CPlog,
              col.var = "contrib", axes = c(1, 3))
-# Posible interpretación del tercer CP
+# Posible interpretaciï¿½n del tercer CP
 # Las mayores correlaciones son con Crime y Recre,
 # ambas son negativas.
 # Este score se puede interpretar como un valor alto en el CP3
@@ -173,13 +173,13 @@ pca
 # standarized loadings son las correlaciones 
 # entre los componentes y las
 # variables originales, es decir, nos ayudan directamente
-# en la interpretación
+# en la interpretaciï¿½n
 
 #De lo no estandarizado notar
 # SS loadings es la varianza de los CP1,
-# además:
+# ademï¿½s:
 pca$loadings[,1] #no son directamente los eigenvectores, 
-                 #están multiplicados por una constante (raíz varianza)
+                 #estï¿½n multiplicados por una constante (raï¿½z varianza)
 
 t(pca$loadings[,1])%*%pca$loadings[,1]
 pca$loadings[,1]/sqrt(pca[["Vaccounted"]][1,1]) #los eigenvectores
@@ -199,26 +199,26 @@ head(pca$scores)
 #se calculan con los standarized loadings
 #para tener varianza 1, es decir, no son los que se
 #obtienen directamente con los eigenvectores
-#Estos se puede obtener realizando la siguiente modificación:
+#Estos se puede obtener realizando la siguiente modificaciï¿½n:
 round(pca$scores[1,]*sqrt(pca$values), 2)
 
 
-##Una gráfica similar a las anteriores
+##Una grï¿½fica similar a las anteriores
 X11()
 biplot(pca,choose=c(1,2,3))
 
 ########
-# Nota, los CP que se obtienen con la función predict de psych
-# no son los mismos que los que se obtendrían usando los eigenvectores
-# originales, sin embargo, la dirección de éstos casi es la misma,
+# Nota, los CP que se obtienen con la funciï¿½n predict de psych
+# no son los mismos que los que se obtendrï¿½an usando los eigenvectores
+# originales, sin embargo, la direcciï¿½n de ï¿½stos casi es la misma,
 # pues usa una matriz de errores
 
 
 CPpsych=factor.scores(x = as.matrix(log10(Datos[,-10])), f = pca, method="components" )
-CPpsych$scores[1,] #sólo datos con los que se calcula pca
+CPpsych$scores[1,] #sï¿½lo datos con los que se calcula pca
 
 CPpsych2=predict.psych(pca, log10(Datos[,-10]), options="best.keys")
-CPpsych2[1,] #nuevos datos, pero no exactamente igual en dirección
+CPpsych2[1,] #nuevos datos, pero no exactamente igual en direcciï¿½n
 
 pairs(cbind(CPpsfs=CPpsych$scores[,1], CPpspred=CPpsych2[,1], CPpssc=pca$scores[,1], CPor=R.CPlog$x[,1]))
 
@@ -227,21 +227,21 @@ cor(cbind(CPpsfs=CPpsych$scores[,1], CPpspred=CPpsych2[,1], CPpssc=pca$scores[,1
 
 
 ##########
-# También, sin ningún paquete es posible obtener
+# Tambiï¿½n, sin ningï¿½n paquete es posible obtener
 # los eigenvectores:
 eigen(cov(log10(Datos[,-10])))
 
 ########
 # Para datos binarios u ordinales, 
-# se puede usar con el paquete psych, cor="mixed" que usa la función mixedCor
-# Otra opción es usar hetcor en el paquete polycor para calcular una matrix
-# de correlación.
+# se puede usar con el paquete psych, cor="mixed" que usa la funciï¿½n mixedCor
+# Otra opciï¿½n es usar hetcor en el paquete polycor para calcular una matrix
+# de correlaciï¿½n.
 
 pcam <- principal(cov(log10(Datos[,-10])), cor="cov", covar = TRUE, nfactor = p, rotate = "none",scores=TRUE)
 pcam
 
-# Componentes principales usando la matriz de correlación
-#Sólo da un resultado, Standardized loadings
+# Componentes principales usando la matriz de correlaciï¿½n
+#Sï¿½lo da un resultado, Standardized loadings
 #Da diferente resultado que usar matriz de covarianzas
 pcamcor <- principal(cov(log10(Datos[,-10])), covar = FALSE, nfactor = p, rotate = "none",scores=TRUE)
 pcamcor
@@ -253,9 +253,9 @@ pcamcorb
 
 
 ###########################################
-###Nota. Si se usa la matriz de correlación, 
-# las gráficas de contribuciones
-# son más fáciles de entender.
+###Nota. Si se usa la matriz de correlaciï¿½n, 
+# las grï¿½ficas de contribuciones
+# son mï¿½s fï¿½ciles de entender.
 
 
 R.CP=prcomp(Datos[,-10], scale = TRUE)
@@ -282,17 +282,17 @@ R.CP$sdev^2
 
 var$contrib[,1] #corresponden al porcentaje de varianza de cada variable
                 #al CP1
-var$cos2[,1]/sum(var$cos2[,1])*100 #contribución de cada variable a la varianza del CP1
+var$cos2[,1]/sum(var$cos2[,1])*100 #contribuciï¿½n de cada variable a la varianza del CP1
 
 options("scipen"=10, "digits"=2) 
-var$cos2*100 #También se puede leer por variable.
+var$cos2*100 #Tambiï¿½n se puede leer por variable.
 
 
 
 ### Tidymodels
 #pca como preprocesamiento
-predict(R.CP, newdata=Datos[2,-10]) #obtener proyección
-                                    #considerando nueva observación
+predict(R.CP, newdata=Datos[2,-10]) #obtener proyecciï¿½n
+                                    #considerando nueva observaciï¿½n
                                     #al dato 2
 
 library(tidyverse)
@@ -300,6 +300,6 @@ library(tidymodels)
 rec <- recipe(~., data = Datos[,-10])
 pca_trans <- rec %>%
   step_normalize(all_numeric()) %>%
-  step_pca(all_numeric(), num_comp = 9)  #sólo se define lo que se hará
+  step_pca(all_numeric(), num_comp = 9)  #sï¿½lo se define lo que se harï¿½
 pca_estimates <- prep(pca_trans, training = Datos[,-10]) #se obtienen los CP
 (pca_data <- bake(pca_estimates, Datos[2,-10])) #se predice

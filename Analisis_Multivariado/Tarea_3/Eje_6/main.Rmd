@@ -5,8 +5,7 @@ output: html_document
 
 
 ```{r setup, include=FALSE}
-#Empezamos limpiando nuestro ambiente
-rm(list = ls(all.names = TRUE))
+
 
 
 # Configuración global de los bloques de código (chunk's)
@@ -28,6 +27,8 @@ library(factoextra)
 library(dplyr)
 library(esquisse)
 library(scatterplot3d)
+library(factoextra)
+library(patchwork)
 
 
 ```
@@ -46,16 +47,11 @@ datos <- read.csv("EPL_19_20.txt", header = TRUE, stringsAsFactors = FALSE)
 ```
 
 
-```{r}
-head(datos)
-```
-
-
 Nuestros datos contiene la tabla de posiciones de la Liga Premier de Inglaterra de la temporada 2019-2020. contando con los siguientes campos 
- **Team**, **W** *(wins)*, **D** *(draws)* ,**L** *(losses)* , **GF** *(goals for)* , **GA** *(goals against)* , **GD** *(goal difference)*
+ **Team**, **W** *(wins)*, **D** *(draws)* ,**L** *(losses)* , **GF** *(goals for)* , **GA** *(goals against)* , **GD** *(goal difference)*, donde la unica columna que no es numera es la de **Team**, por lo que la retiraremos para nuestro PCA
 
 
-```{r PCA}
+```{r PCA, echo=FALSE}
 #Realizamos un analisis de componentes principales
 
 #Limpieza d elos datos, para que todos nuestros datos sean numericos 
@@ -65,29 +61,59 @@ rownames(datos_numericos) <- datos$Team  #Paea seguir conservando los nombres de
 
 pca <- prcomp(datos_numericos, scale. = TRUE)
 
+
+
 summary(pca)
 
 
-
-
-
-
 ```
+
+
+
 
 ```{r}
 #Grafica del Bracito 
 fviz_eig(pca, addlabels = TRUE, ylim = c(0, 100))
 ```
+Con esta gráfica podemos observar que los dos primeros componentes principales explican aproximadamente el 96% de la varianza total, por lo que sería suficiente conservar únicamente estos dos. El primer componente, por sí solo, explica más del 70% de la varianza.
+
 
 
 ```{r}
-print(pca$rotation)
-```
-GD  y D   
-```{r}
-fviz_pca_var(pca, col.var = "contrib", gradient.cols = c("white", "blue", "red"))
+
+
+
+# Gráficas individuales
+g1 <- fviz_contrib(pca, choice = "var", axes = 1) + ggtitle("Contribucion al componente 1")
+g2 <- fviz_contrib(pca, choice = "var", axes = 2) + ggtitle("Contribucion al componente 2")
+
+# Lado a lado
+g1 + g2
+
 
 ```
+Seleccionando solo los dos primeros componentes, podemos ver qué variables aportan más a cada uno de ellos.
+
+
+```{r, echo=FALSE}
+#Interpretacion 
+
+cor(pca$x[,1:2], datos_numericos )
+```
+
+```{r}
+fviz_pca_biplot(pca,
+                geom.ind = "none",  # Oculta individuos
+                col.var = "contrib",
+                gradient.cols = c("white", "blue", "red"))
+
+
+```
+ 
+
+Una vez tomados solamente dos componentes, podemos identificar al **componente 1**. Lo que más varianza le aporta son: **W (victorias)**, **GD (diferencia de goles)** y **L (derrotas)** (en sentido opuesto), por lo que este componente podría medir qué tan bien le va a un equipo. Además, podemos ver que, a mayor número de victorias, el equipo tiene una mayor diferencia de goles y un menor número de derrotas y empates, por lo que podemos inferir que el equipo tiene una buena defensa y delantera.
+
+Mientras que en el **componente 2**, lo que más varianza le aporta son: **D (empates)** (en sentido opuesto), **GA (goles en contra)** y **L (derrotas)**, por lo que este componente podría medir qué tan mal le va a un equipo. Además, podemos interpretar que un mayor número de derrotas implica un mayor número de goles en contra y también un menor número de empates, lo cual nos podría indicar que el equipo tiene una mala defensa o no es capaz de finalizar jugadas en gol.
 
 
 
@@ -96,29 +122,18 @@ fviz_pca_var(pca, col.var = "contrib", gradient.cols = c("white", "blue", "red")
 #Grafica 
 fviz_pca_biplot(pca, repel = TRUE, col.var = "steelblue", col.ind = "gray30")
 ```
+Dado el análisis anterior, podemos corroborarlo con los datos obtenidos. Por ejemplo, podemos ver a los tres mejores equipos, que son: **Liverpool**, **Manchester City** y **Chelsea**. En la gráfica, podemos observar que estos equipos están en la parte superior derecha, lo que indica que tienen un alto número de victorias y una buena diferencia de goles. Sin embargo, a diferencia de los primeros dos equipos, el **Chelsea** tiene un mayor número de derrotas, por lo cual está más centrado con respecto al componente 2.
+
+Del mismo modo, podemos observar a los equipos con peor desempeño. Estos se encuentran en la parte inferior izquierda y serían: **Norwich City**, **Bournemouth**, **Aston Villa** y **Watford**. Estos equipos tienen una alta cantidad de partidos perdidos y una diferencia de goles negativa, lo que indica un mal rendimiento en la liga.
+
+Por último, algunos equipos con un desempeño intermedio son: **Tottenham** y **Manchester United**, que se encuentran en la parte inferior derecha. Esto indica que tienen un número moderado de victorias y
 
 
-```{r}
+```{r, echo=FALSE}
 
-
-data_reg <- datos %>% dplyr::select(Team,W, GD, D)
-
-data_reg
-```
-
-
-```{r}
-#esquisser(data_reg)
-
-```
-
-
-```{r}
-ggplot(data_reg) +
-  aes(x = W, y = GD, colour = Team, size = D) +
-  geom_point() +
-  scale_color_hue(direction = 1) +
-  theme_minimal()
+data_reg <- datos %>%
+  dplyr::select(Team, W, D, L,  GD) %>%
+  dplyr::arrange(desc(D))  # Ordena por victorias de menor a mayor
 
 ```
 
@@ -126,41 +141,6 @@ ggplot(data_reg) +
 
 
 
-
-
-
-
-
-```{r}
-# Instalar si no lo tienes
-
-# Librería
-
-
-# Graficar
-scatterplot3d(x = datos$GD,
-              y = datos$D,
-              z = datos$W,
-              type = "p",    # puntos
-              highlight.3d = TRUE,
-              angle = 55,
-              pch = 16,
-              main = "W en función de GD y D")
-
-# Ajustar modelo
-modelo <- lm(W ~ GD + D, data = datos)
-
-# Añadir plano de regresión
-scatterplot3d(datos$GD, datos$D, datos$W,
-              pch = 16,
-              angle = 55,
-              main = "Plano de regresión")
-
-# Plano de regresión
-s3d <- scatterplot3d(datos$GD, datos$D, datos$W, type="p")
-s3d$plane3d(modelo)
-
-```
 
 
 
