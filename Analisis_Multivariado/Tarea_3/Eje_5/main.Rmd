@@ -27,13 +27,13 @@ library(factoextra)
 library(dplyr)
 library(esquisse)
 library(scatterplot3d)
-library(factoextra)
+library(factoextra) #Sirve para sumar graficas
 library(patchwork)
 
 
 ```
 
-# AA
+# Analisis Heptatlón
 
 
 ```{r}
@@ -46,9 +46,10 @@ datos <- read.table("heptathlon_2016.txt", header = TRUE, sep = "", stringsAsFac
 
 
 
-```{r}
-head(datos)
-```
+ 
+Los datos proporcionados corresponden al heptatlón, una disciplina del atletismo que consiste en siete pruebas. En este caso, los datos se refieren a las pruebas realizadas por diferentes atletas en el año 2016. Cada fila representa un atleta y cada columna, una prueba específica. Las pruebas son las siguientes: **hurdles** (100 metros con vallas), **highjump** (salto de altura), **shot** (lanzamiento de bala), **200m** (200 metros), **longjump** (salto de longitud), **javelin** (lanzamiento de jabalina) y **800m** (800 metros). 
+
+Como podemos observar, en algunas pruebas es mejor obtener un valor alto (como en el lanzamiento de bala), mientras que en otras es preferible un valor bajo, como en las carreras. El objetivo es realizar un análisis de componentes principales (PCA) para identificar patrones y relaciones entre las diferentes pruebas.
 
 
 ```{r PCA, echo=FALSE}
@@ -56,8 +57,9 @@ head(datos)
 
 #Limpieza d elos datos, para que todos nuestros datos sean numericos 
 datos_numericos <- datos[,-1] #Quirando la primera columna de los nombres de los equipos
-rownames(datos_numericos) <- datos$Team  #Paea seguir conservando los nombres de los equipos en nuestro DF
+#rownames(datos_numericos) <- datos$name  #Paea seguir conservando los nombres de los equipos en nuestro DF
 
+#datos_numericos
 
 pca <- prcomp(datos_numericos, scale. = TRUE)
 
@@ -74,6 +76,9 @@ summary(pca)
 fviz_eig(pca, addlabels = TRUE, ylim = c(0, 100))
 ```
 
+En esta gráfica podemos observar la proporción de varianza que explica cada uno de los componentes principales. El primer componente explica el 35.7 % de la varianza total, seguido por el segundo (24.2%) y el tercero (14.7%).
+
+Podemos notar que la varianza explicada por cada componente no disminuye de forma abrupta como para aplicar claramente la regla del codo. Además, para superar el umbral del 80 % de varianza explicada, se necesitan al menos cuatro componentes principales. Sin embargo, para simplificar el análisis y facilitar la visualización en 3D, decidimos trabajar con los tres primeros componentes, los cuales explican en conjunto aproximadamente el 74.6% de la varianza total.
 
 
 ```{r}
@@ -81,9 +86,9 @@ fviz_eig(pca, addlabels = TRUE, ylim = c(0, 100))
 
 
 # Gráficas individuales
-g1 <- fviz_contrib(pca, choice = "var", axes = 1) + ggtitle("Contribucion al componente 1")
-g2 <- fviz_contrib(pca, choice = "var", axes = 2) + ggtitle("Contribucion al componente 2")
-g3 <- fviz_contrib(pca, choice = "var", axes = 3) + ggtitle("Contribucion al componente 3")
+g1 <- fviz_contrib(pca, choice = "var", axes = 1) + ggtitle("Contribucion a componente 1")
+g2 <- fviz_contrib(pca, choice = "var", axes = 2) + ggtitle(",componente 2")
+g3 <- fviz_contrib(pca, choice = "var", axes = 3) + ggtitle(", componente 3")
 
 # Lado a lado
 g1 + g2 + g3
@@ -91,54 +96,79 @@ g1 + g2 + g3
 
 ```
 
+En esta gráfica podemos observar la contribución de cada variable a los tres primeros componentes principales.
+
+El primer componente parece estar influenciado principalmente por pruebas de velocidad y técnica como los 200 metros planos, el salto de longitud, las vallas y el salto de altura, todas ellas de carácter más aeróbico o técnico.
+
+El segundo componente está dominado por pruebas que requieren fuerza explosiva, como el lanzamiento de bala, la jabalina y nuevamente el salto de altura.
+
+Por otro lado, el tercer componente está fuertemente influenciado por la prueba de 800 metros planos, lo cual sugiere que representa la resistencia aeróbica, separándola claramente del resto de habilidades.
+
 ```{r, echo=FALSE}
 #Interpretacion 
 
 cor(pca$x[,1:3], datos_numericos )
 ```
-```{r}
-library(plotly)
 
-# Crear un biplot interactivo 3D para las variables
-pc_var <- as.data.frame(pca$rotation[, 1:3]) # Cargas (loadings)
-pc_var$varname <- rownames(pc_var)
 
-plot_ly(pc_var, x = ~PC1, y = ~PC2, z = ~PC3, type = 'scatter3d', mode = 'text+lines',
-        text = ~varname, line = list(color = 'blue')) %>%
-  layout(title = "Variables en espacio PCA 3D")
 
-```
 
 
 ```{r}
 library(plotly)
 
-# Extraemos los loadings de las variables
 loadings <- as.data.frame(pca$rotation[, 1:3])
 loadings$varname <- rownames(loadings)
 
-# Creamos las flechas como segmentos desde el origen (0,0,0)
+# Crear gráfico base
 fig <- plot_ly()
 
+# Flechas de variables (azules)
 for (i in 1:nrow(loadings)) {
   fig <- fig %>%
     add_trace(
       type = "scatter3d",
-      mode = "lines+text",
+      mode = "lines",
       x = c(0, loadings[i, 1]),
       y = c(0, loadings[i, 2]),
       z = c(0, loadings[i, 3]),
-      line = list(color = "blue"),
-      text = loadings$varname[i],
-      textposition = "top right",
-      name = loadings$varname[i],
+      line = list(color = "#1a5276"),
       showlegend = FALSE
     )
 }
 
-# Layout del gráfico
+# Etiquetas
+fig <- fig %>%
+  add_trace(
+    type = "scatter3d",
+    mode = "text",
+    x = loadings$PC1,
+    y = loadings$PC2,
+    z = loadings$PC3,
+    text = loadings$varname,
+    textposition = "top right",
+    textfont = list(size = 12, color = "black"),
+    showlegend = FALSE
+  )
+
+# Líneas rojas para ejes PC1, PC2 y PC3
+fig <- fig %>%
+  add_trace(type = "scatter3d", mode = "lines",
+            x = c(0, 1), y = c(0, 0), z = c(0, 0),
+            line = list(color = "#f72727", width = 2),
+            showlegend = FALSE) %>%
+  add_trace(type = "scatter3d", mode = "lines",
+            x = c(0, 0), y = c(0, 1), z = c(0, 0),
+            line = list(color = "#63f31b", width = 2),
+            showlegend = FALSE) %>%
+  add_trace(type = "scatter3d", mode = "lines",
+            x = c(0, 0), y = c(0, 0), z = c(0, 1),
+            line = list(color = "#fa4ef8", width = 2),
+            showlegend = FALSE)
+
+# Título y ejes
 fig <- fig %>% layout(
-  title = "Variables en espacio PCA 3D",
+  title = "Variables en espacio PCA 3D (mejorado con ejes)",
   scene = list(
     xaxis = list(title = "PC1"),
     yaxis = list(title = "PC2"),
@@ -146,27 +176,19 @@ fig <- fig %>% layout(
   )
 )
 
-# Mostrar gráfico (importante en RMarkdown)
 fig
 
-
 ```
 
+Grafica donde representamos nuestro PCA, la linea **Morada** representa el componenete 3, la linea **Verda** el componente 2 y la linea **Roja** el componente 1.
+
+Algunas consideraciones a tomar en cuenta en este análisis son que las escalas de medición en las diferentes pruebas deportivas no son las mismas, por lo que no podemos comparar directamente los resultados. Por ejemplo, un mayor valor en las pruebas de carrera representa un peor desempeño, mientras que un valor alto en el lanzamiento de bala o en el salto indica un mejor rendimiento. 
+
+Por esta razón, en este análisis evaluaremos los componentes principales por pares.
 
 
 
-```{r}
-library(plotly)
 
-# Coordenadas de individuos
-pc_ind <- as.data.frame(pca$x[, 1:3])
-pc_ind$name <- rownames(pc_ind)
-
-plot_ly(pc_ind, x = ~PC1, y = ~PC2, z = ~PC3, type = 'scatter3d',
-        mode = 'text+markers', text = ~name, marker = list(size = 4)) %>%
-  layout(title = "Individuos en espacio PCA 3D")
-
-```
 
 ```{r}
 fviz_pca_biplot(pca, axes = c(1, 3),
@@ -176,6 +198,14 @@ fviz_pca_biplot(pca, axes = c(1, 3),
 
 ```
 
+Podemos observar que el componente 3 está mayormente explicado por las pruebas de 800 metros planos y hurdles (100 metros con vallas). Esto sugiere que este componente representa un eje que contrapone la resistencia aeróbica frente a la velocidad técnica.
+
+Una interpretación posible es que los atletas con un mayor tiempo en los 800 metros (es decir, menor resistencia) tienden a tener mejor desempeño en las vallas, lo que podría deberse a su complexión corporal: los atletas con mayor masa muscular o fuerza explosiva podrían rendir mejor en pruebas técnicas, pero quedar en desventaja en pruebas de resistencia.
+
+Por ejemplo, el competidor 10 (Jones-BAR) quedó en último lugar en los 800 metros, pero fue segundo en la prueba de vallas, lo que apoya esta idea.
+
+Idealmente, los atletas con un buen equilibrio entre ambas habilidades (resistencia y técnica) se ubicarían en el cuarto cuadrante, donde el componente 3 y el componente 1 son positivos. Ejemplos de esto son el competidor 6 (Ennis-Hill, GBR) y el 21 (Theisen-Eaton, CAN).
+
 
 ```{r}
 fviz_pca_biplot(pca, axes = c(1, 2),
@@ -184,21 +214,89 @@ fviz_pca_biplot(pca, axes = c(1, 2),
                 repel = TRUE)
 
 ```
+
+En el componente 1, podemos observar que los competidores con menor rendimiento en pruebas de carrera tienden a tener mejor desempeño en pruebas de fuerza explosiva, como el lanzamiento de bala y la jabalina. Además, mientras más se ubican hacia la izquierda del origen, peor es su resultado en lanzamientos, y viceversa.
+
+Un ejemplo claro es el participante 9 (Johnson-Thompson, GBR), quien obtuvo el último lugar en jabalina, pero fue primero en los 200 metros planos. Esto podría deberse a su complexión corporal: atletas más ligeras tienden a correr más rápido, mientras que las más robustas tienen ventaja en pruebas de potencia, aunque son más lentas corriendo.
+
+Por otro lado, también se observa que un buen desempeño en los 200 metros (menor tiempo) se asocia con mejores resultados en salto de longitud. Esto puede explicarse porque ambas pruebas requieren velocidad horizontal para despegar. Nuevamente, Johnson-Thompson (GBR) es ejemplo de esta relación: fue primera en 200m y tercera en salto de longitud.
+
+Por lo tanto, los competidores que se ubican más a la izquierda del gráfico tenderán a destacar tanto en velocidad como en saltos, mientras que los de la derecha lo harán mejor en lanzamientos.
+
+
+```{r, echo=FALSE}
+#Usnado Dyplr y mis compenentes para dar una conclusio
+
+#filtro <- datos %>%  select(name, run200m, longjump) %>% arrange(run200m)
+
+#filtro
+
+
+#filtro2 <- datos %>%  select(name, run200m, longjump) %>% arrange(desc(longjump))
+
+#filtro2
+
+
+#datos
+```
+
 ```{r}
-fviz_pca_biplot(pca, axes = c(2, 3),
-                col.var = "contrib",
-                col.ind = "gray40",
-                repel = TRUE)
+
+# Tu código base
+p <- fviz_pca_biplot(
+  pca,
+  axes = c(2, 1),  # IMPORTANTE: el orden aquí es (y, x)
+  col.var = "contrib",
+  col.ind = "gray40",
+  repel = TRUE
+)
+
+# Agregar línea x = y
+p + geom_abline(intercept = 0, slope = 2, color = "red", linetype = "dashed")
 
 ```
 
+A partir del componente 2, podemos interpretar que los atletas con buen rendimiento en pruebas de salto también tienden a destacar en pruebas de velocidad, como los 200m y los 100m con vallas. Sin embargo, esto suele estar acompañado de un menor desempeño en pruebas de fuerza, como el lanzamiento de bala y jabalina, probablemente debido a diferencias en la complexión física.
+
+Por lo tanto, utilizando esta última gráfica como conclusión, podemos decir que los atletas más equilibrados y con mayor posibilidad de ganar el heptatlón son aquellos que se encuentran en la zona cercana a la recta identidad (línea roja), especialmente en el primer y cuarto cuadrante. Estos atletas tienen un buen balance entre fuerza, velocidad y resistencia, lo cual les permite obtener buenos resultados en casi todas las pruebas.
+
+Por ejemplo, el competidor 6 (Ennis-Hill, GBR) se posicionó dentro del top 5 en casi todas las disciplinas, obteniendo incluso varios primeros lugares. De forma similar, el competidor 21 (Theisen-Eaton, CAN) también mostró un desempeño constante y destacado en la mayoría de las pruebas.
+
+
+```{r, echo=FALSE}
+
+#Filtro para ver a los mejores competidores en cada prueba 
+filtro <- datos %>%  select(name, hurdles) %>% arrange(hurdles)
+
+#filtro
+
+filtro2 <- datos %>%  select(name, highjump) %>% arrange(desc(highjump))
+
+#filtro2
+
+filtro3 <- datos %>%  select(name, shot) %>% arrange(desc(shot))
+
+#filtro3
+
+filtro4 <- datos %>%  select(name, run200m) %>% arrange(run200m)
+
+#filtro4
+
+filtro5 <- datos %>%  select(name, longjump) %>% arrange(desc(longjump))
+#filtro5
+
+filtro6 <- datos %>%  select(name, javelin) %>% arrange(desc(javelin))
+#filtro6
+
+filtro7 <- datos %>%  select(name, run800m) %>% arrange(run800m)
+#filtro7
 
 
 
 
 
 
-
+```
 
 
 
