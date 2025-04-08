@@ -25,14 +25,13 @@ library(tidyverse)
 library(ggplot2)
 library(factoextra)
 library(dplyr)
-library(esquisse)
-library(scatterplot3d)
 library(patchwork)
 library(GGally)
 library(ggthemes)
 library(psych)
 library(here)
 library(expm)
+library(knitr)
 library(GPArotation)
 
 ```
@@ -47,9 +46,26 @@ cor_mat <- as.matrix(df)     # Convierte a matriz
 
 N = 123 #Numero de observaciones que tenemos en nuestro estudio
 
-cor_mat
 
 ```
+
+
+# Estudio del dolor 
+
+El estudio consta de un formulario con 9 preguntas, a las cuales se les asignó un valor de 1 a 6 (completamente de acuerdo, muy de acuerdo, de acuerdo, en desacuerdo, muy en desacuerdo, completamente en desacuerdo). 
+
+El tema de la entrevista es indagar en las percepciones de personas que sufren de dolor extremo, preguntándoles sobre su estado y sus creencias al respecto, con el objetivo de comprender mejor su realidad. La entrevista fue respondida por 123 personas y las preguntas fueron las siguientes:
+
+
++ Si en el futuro tengo o no dolor depende de la habilidad y conocimiento de mis médicos.  
++ Cuando tengo dolor, usualmente es a causa de algo que hice o que dejé de hacer.  
++ Si tengo o no dolor depende de lo que los médicos hagan por mí.  
++ No puedo obtener ayuda para mi dolor a menos que busque atención médica.  
++ Cuando tengo dolor, sé que es a causa de que no he hecho el ejercicio adecuado ni he comido de forma adecuada.  
++ El dolor de las personas resulta de su imprudencia.  
++ Soy directamente responsable de mi dolor.  
++ El alivio del dolor es controlado principalmente por los médicos.  
++ Las personas que no tienen dolor son meramente afortunadas.
 
 
 ```{r}
@@ -63,11 +79,6 @@ Esta función y grafica del paquete `psych` nos ayuda a determinar cuántos fact
 ```{r}
 # Realizamos factor de análisis principales sin rotación con 2 factor
 efa1=fa(r=cor_mat,nfactors=2,fm="pa",rotate="none")#-- modelo con 2 facotores
-efa1
-
-# Realizamos factor de análisis principales sin rotación con 3 facores
-efa2=fa(r=cor_mat,nfactors=3,fm="pa",rotate="none")# -- ya con tres factores explica mejor el comportamiento 
-efa2
 
 #Reusmen de la salida 
 
@@ -78,45 +89,118 @@ efa2
 #
 ```
 
-
-
 ```{r Evaluando_modelo, echo=FALSE}
+kable(efa1$Vaccounted, 
+      digits = 2, 
+      caption = "Tabla de factores factores")
 
-
-# Asegúrate que no tiene clase errónea
-class(cor_mat) <- NULL
-
-# Asignar atributo de número de observaciones
-attr(cor_mat, "n.obs") <- 123
-
-# Ahora sí, correr el análisis factorial por máxima verosimilitud
-efa_mle <- fa(r = cor_mat, nfactors = 2, fm = "mle", rotate = "none")
-efa_mle$STATISTIC
-efa_mle$PVAL
-
-
-
-
-#efa1_mle$STATISTIC  # estadístico chi-cuadrado
-#efa1_mle$PVAL        # valor p
-
+#No funciono por que la matriz es casi singular
+#efa_mle <- fa(cor_obj, nfactors = 2, fm = "mle", rotate = "none")
+#efa_mle$STATISTIC
+#efa_mle$PVAL
 
 ```
+
+Esta tabla nos indica la cantidad de varianza que nos explica cada factor. 
+
+
+Un problemas que nos encontramos fue el determinante de la matriz de correlación, fue casi cero, extactamente fue `r det(cor_mat)`, lo que indica que la matriz de correlación es casi singular. Esto puede ser un problema para el análisis factorial, ya que puede dificultar la identificación de factores significativos. Sin embargo, el análisis paralelo sugiere que dos factores son suficientes para explicar la varianza en los datos. Donde nuestros dos factores explican cerca del **50%**, de nuestra varianza total, que aunque no es mucho es un buen resultado. 
+
+
+
 ```{r}
-cor_obj <- list(r = cor_mat, n.obs = 123)
-class(cor_obj) <- "psych"
-
-efa_mle <- fa(cor_obj, nfactors = 2, fm = "mle", rotate = "none")
-efa_mle$STATISTIC
-efa_mle$PVAL
+efa_varimax <- fa(r = cor_mat, nfactors = 2, fm = "pa", rotate = "varimax") #Deniniendo una rotacion 
 
 ```
 
 
+```{r}
 
-efa$STATISTIC
-efa$PVAL
+# Extraer las cargas factoriales
+cargas <- efa1$loadings[, 1:2]
+cargas_mat <- as.matrix(cargas)
 
+# Determinar el factor dominante
+factor_dominante <- apply(abs(cargas_mat), 1, which.max)
+
+# Asignar color: azul para F1, rojo para F2
+colores <- ifelse(factor_dominante == 1, "blue", "red")
+
+# Crear etiquetas con factor dominante
+etiquetas <- paste0(rownames(cargas_mat), "\n(F", factor_dominante, ")")
+
+# Graficar con color
+plot(cargas_mat, xlim = c(-1, 1), ylim = c(-1, 1),
+     xlab = "Factor 1", ylab = "Factor 2",
+     main = "Cargas factoriales sin rotación",
+     col = colores, pch = 19)
+
+# Agregar etiquetas con color
+text(cargas_mat, labels = etiquetas, pos = 3, cex = 0.8, col = colores)
+
+# Líneas guía
+abline(h = 0, v = 0, lty = 2)
+
+
+
+```
+En esta grafica podemos observar que los factores no estan claramente diferenciados, lo que dificulta su interpretacion.
+
+
+```{r}
+# Extraer y convertir a matriz
+cargas <- as.matrix(efa_varimax$loadings[, 1:2])
+
+# Determinar el factor dominante (1 o 2) por variable
+factor_dominante <- apply(abs(cargas), 1, which.max)
+
+# Colores: Factor 1 en azul, Factor 2 en rojo
+colores <- ifelse(factor_dominante == 1, "blue", "red")
+
+# Graficar con colores según el factor dominante
+plot(cargas, xlim = c(-1, 1), ylim = c(-1, 1),
+     xlab = "Factor 1 (rotado)", ylab = "Factor 2 (rotado)",
+     main = "Cargas factoriales con rotación Varimax",
+     col = colores, pch = 19)  # puntos más gruesos
+
+# Agregar etiquetas
+text(cargas, labels = rownames(cargas), pos = 3, cex = 0.8, col = colores)
+
+# Líneas guía
+abline(h = 0, v = 0, lty = 2)
+
+```
+Haciendo una trasformacion varimax, podemos ver como nuestros factores se separan, lo que nos permite una mejor interpretacion de los resultados.
+
+```{r}
+
+fa.diagram(efa_varimax)
+
+```
+
+Separando las preguntas según los factores obtenidos, tenemos:
+
+#### Factor 1 – Control médico del dolor
+
++ Si tengo o no dolor depende de lo que los médicos hagan por mí.
++ No puedo obtener ayuda para mi dolor a menos que busque atención médica.
++ El alivio del dolor es controlado principalmente por los médicos.
++ Si en el futuro tengo o no dolor depende de la habilidad y conocimiento de mis médicos.
++ Las personas que no tienen dolor son meramente afortunadas.
+
+Este factor parece estar relacionado con la **confianza del paciente en los médicos y en el sistema de salud** como principal medio para aliviar el dolor, reflejando una percepción de **control externo**.
+
+#### Factor 2 – Responsabilidad personal
+
++ Cuando tengo dolor, usualmente es a causa de algo que hice o dejé de hacer.
++ Cuando tengo dolor, sé que es a causa de que no he hecho el ejercicio adecuado ni he comido de forma adecuada.
++ El dolor de las personas resulta de su imprudencia.
++ Soy directamente responsable de mi dolor.
+
+Este segundo factor refleja una visión en la que el paciente se siente **responsable directo de su dolor**, ya sea por imprudencia, malos hábitos o culpa. Esto sugiere un componente psicológico importante que podría influir en su decisión de **buscar o no ayuda médica**.
+
+
+En resumen, el análisis factorial sugiere que los pacientes conceptualizan el origen del dolor en dos dimensiones distintas: una orientada hacia el **control externo (médicos, suerte)** y otra hacia el **control interno (responsabilidad personal)**. Esta distinción puede ser útil para diseñar intervenciones médicas o terapéuticas más personalizadas.
 
 
 
