@@ -1,0 +1,71 @@
+---
+author: "Fernando Alvarado"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+#Librerias necesarias
+library(tidyverse)
+library(ggplot2)
+library(factoextra)
+library(dplyr)
+library(esquisse)
+library(scatterplot3d)
+library(factoextra) #Sirve para sumar graficas
+library(patchwork)
+
+
+```
+
+# Analisis Heptatlón
+
+
+```{r}
+#Cargamos los datos
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_3/Eje_5/Data")
+#Leyendo un txt
+datos <- read.table("heptathlon_2016.txt", header = TRUE, sep = "", stringsAsFactors = FALSE)
+
+```
+
+
+
+ 
+Los datos proporcionados corresponden al heptatlón, una disciplina del atletismo que consiste en siete pruebas. En este caso, los datos se refieren a las pruebas realizadas por diferentes atletas en el año 2016. Cada fila representa un atleta y cada columna, una prueba específica. Las pruebas son las siguientes: **hurdles** (100 metros con vallas), **highjump** (salto de altura), **shot** (lanzamiento de bala), **200m** (200 metros), **longjump** (salto de longitud), **javelin** (lanzamiento de jabalina) y **800m** (800 metros). 
+
+Como podemos observar, en algunas pruebas es mejor obtener un valor alto (como en el lanzamiento de bala), mientras que en otras es preferible un valor bajo, como en las carreras. El objetivo es realizar un análisis de componentes principales (PCA) para identificar patrones y relaciones entre las diferentes pruebas.
+
+
+```{r PCA, echo=FALSE}
+#Realizamos un analisis de componentes principales
+
+#Limpieza d elos datos, para que todos nuestros datos sean numericos 
+datos_numericos <- datos[,-1] #Quirando la primera columna de los nombres de los equipos
+#rownames(datos_numericos) <- datos$name  #Paea seguir conservando los nombres de los equipos en nuestro DF
+
+#datos_numericos
+
+pca <- prcomp(datos_numericos, scale. = TRUE)
+
+
+
+summary(pca)
+
+
+```
