@@ -29,6 +29,8 @@ library(esquisse)
 library(scatterplot3d)
 library(factoextra) #Sirve para sumar graficas
 library(patchwork)
+library(psych)
+library(knitr)
 
 
 ```
@@ -59,13 +61,153 @@ Como podemos observar, en algunas pruebas es mejor obtener un valor alto (como e
 datos_numericos <- datos[,-1] #Quirando la primera columna de los nombres de los equipos
 #rownames(datos_numericos) <- datos$name  #Paea seguir conservando los nombres de los equipos en nuestro DF
 
-#datos_numericos
+N=27 #Numero de participantes
 
-pca <- prcomp(datos_numericos, scale. = TRUE)
+mat_cor <- cor(datos_numericos) #Calculamos la matriz de correlacion
 
 
-
-summary(pca)
 
 
 ```
+
+
+
+```{r}
+fa.parallel(mat_cor, fa = "fa", n.obs = N, fm = "pa")
+
+```
+
+Esta función y grafica del paquete `psych` nos ayuda a determinar cuántos factores son necesarios conservar en nuestro análisis factorial. En este caso, el análisis paralelo sugiere conservar **dos factores**, ya que los dos primeros autovalores reales (línea azul) están claramente por encima de los autovalores simulados (línea punteada roja). El tercer autovalor está muy cerca del simulado, por lo que no aportaría información adicional significativa al modelo.
+
+```{r}
+# Realizamos factor de análisis principales sin rotación con 2 factor
+modelo=fa(r=mat_cor,nfactors=2,fm="pa",rotate="none")#-- modelo con 2 facotores
+
+#Reusmen de la salida 
+
+#
+# PA1 y PA2, cargsa de cada uno de los factores
+# h2, comunalidad, proporcion de la varianza explicada por los factores
+# u2, varianza unica, proporcion de la varianza no explicada por los factores
+#
+```
+
+```{r Evaluando_modelo, echo=FALSE}
+kable(modelo$Vaccounted)
+
+
+# det(mat_cor)
+#No funciono por que la matriz es casi singular
+#efa_mle <- fa(mat_cor, nfactors = 2, fm = "pa", rotate = "none")
+
+#efa_mle$STATISTIC
+#efa_mle$PVAL
+
+
+#KMO(mat_cor)       # medida KMO (debe ser > 0.6 idealmente)
+
+#Prueba de hipotesiis de Barlet, sirve para saber si nuestras varaibles estan correlacionadas 
+#Ho: La variables no estan correlacionadas (no es util el analisis factorial) vs Ha: Hay correlaciones significativas (Analisis factorial adecuado)
+prueba <- cortest.bartlett(mat_cor, n = nrow(datos))  # test de Bartlett, 
+
+
+
+```
+Esta tabla nos indica la cantidad de varianza que nos explica cada factor. 
+
+
+Para verificar si el analisis de factores es adecuado, realizamos la prueba de esfericidad de Bartlett, la cual evalúa si nuestras variables están significativamente correlacionadas.
+
+Dado que obtuvimos un p-valor de `r  prueba$p.value` , podemos concluir que  suficiente evidencia estadisitica para concluir que las variables estan significativamente correlacionadas y por lo tanto nuesto analisis de factores es adecuado.
+
+
+```{r}
+efa_varimax <- fa(r = mat_cor, nfactors = 2, fm = "pa", rotate = "varimax") #Deniniendo una rotacion 
+
+```
+
+
+
+```{r}
+
+# Extraer las cargas factoriales
+cargas <- modelo$loadings[, 1:2]
+cargas_mat <- as.matrix(cargas)
+
+# Determinar el factor dominante
+factor_dominante <- apply(abs(cargas_mat), 1, which.max)
+
+# Asignar color: azul para F1, rojo para F2
+colores <- ifelse(factor_dominante == 1, "blue", "red")
+
+# Crear etiquetas con factor dominante
+etiquetas <- paste0(rownames(cargas_mat), "\n(F", factor_dominante, ")")
+
+# Graficar con color
+plot(cargas_mat, xlim = c(-1, 1), ylim = c(-1, 1),
+     xlab = "Factor 1", ylab = "Factor 2",
+     main = "Cargas factoriales sin rotación",
+     col = colores, pch = 19)
+
+# Agregar etiquetas con color
+text(cargas_mat, labels = etiquetas, pos = 3, cex = 0.8, col = colores)
+
+# Líneas guía
+abline(h = 0, v = 0, lty = 2)
+
+
+
+```
+Grafica donde podemos ver la cargas sin rotacion.
+
+```{r}
+# Extraer y convertir a matriz
+cargas <- as.matrix(efa_varimax$loadings[, 1:2])
+
+# Determinar el factor dominante (1 o 2) por variable
+factor_dominante <- apply(abs(cargas), 1, which.max)
+
+# Colores: Factor 1 en azul, Factor 2 en rojo
+colores <- ifelse(factor_dominante == 1, "blue", "red")
+
+# Graficar con colores según el factor dominante
+plot(cargas, xlim = c(-1, 1), ylim = c(-1, 1),
+     xlab = "Factor 1 (rotado)", ylab = "Factor 2 (rotado)",
+     main = "Cargas factoriales con rotación Varimax",
+     col = colores, pch = 19)  # puntos más gruesos
+
+# Agregar etiquetas
+text(cargas, labels = rownames(cargas), pos = 3, cex = 0.8, col = colores)
+
+# Líneas guía
+abline(h = 0, v = 0, lty = 2)
+
+```
+
+Aunque se probarios varia rotaciones por el numero de varibles y al tener solo dos factores el resultado no cambio mucho, por lo que nos qudamos con la rotacion varimax. En esta grafica mas o menos se diferenian 2 grupos (Cluster), uno en la parte de enmedio por el eje x y otro en la parte de arriba, que los podriamos interpretar como el grupo de velocidad y el grupo de fuerza.
+
+
+
+```{r}
+
+fa.diagram(efa_varimax)
+
+```
+
+
+
+## Analisis 
+
+En este análisis, identificamos dos factores principales que influyen en el rendimiento del atleta. El primer factor está asociado a pruebas que requieren velocidad, resistencia y fuerza en el tren inferior, como las carreras y los saltos. El segundo factor, en cambio, está relacionado con la fuerza explosiva del tren superior, involucrando pruebas como el lanzamiento de peso y jabalina.
+
+En el **factor 1**, observamos que **highjump** y **longjump** presentan cargas negativas, mientras que **run200m** y **hurdles** presentan cargas positivas. Esto puede interpretarse considerando la dirección de las escalas: en las pruebas de salto se busca maximizar la distancia o altura, mientras que en las carreras se busca minimizar el tiempo. Esta diferencia de escala puede explicar la relación inversa. Por tanto, este factor puede denominarse "**Fuerza y velocidad en tren inferior**".
+
+En el **factor 2**, las variables **shot** y **javelin** presentan cargas positivas, lo que indica una asociación fuerte entre estas disciplinas de lanzamiento. Ambas se centran en maximizar la distancia alcanzada, involucrando fuerza explosiva en el tren superior. Este factor puede interpretarse como "**Fuerza explosiva en tren superior**".
+
+
+### Diferencias con PCA
+
+A diferencia del FA, en el PCA observamos que cada componente se explica por distintas pruebas y con diferentes valores, aunque ambos métodos mantienen consistencia en cuanto a las escalas y las marcas de rendimiento. En PCA, los componentes reflejan combinaciones de variables que maximizan la varianza, mientras que en FA los factores buscan explicar las correlaciones entre variables.
+
+Desde mi perspectiva, el PCA resulta más fácil de interpretar, ya que con un poco de filtrado de datos se pueden analizar los resultados de manera más detallada, permitiendo identificar qué atletas se destacaron en cada prueba específica. En cambio, el FA ofrece una visión más global o estructural, útil para agrupar pruebas que comparten habilidades similares, aunque menos enfocado en el rendimiento individual de cada atleta.
+
