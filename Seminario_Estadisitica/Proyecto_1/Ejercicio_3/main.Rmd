@@ -389,7 +389,7 @@ a <- exp(1.952881 )  # Dosis A
 
 b <- exp(1.719986) # Bosis B
 
-b <- exp(0.8977994) # Dosis C
+c <- exp(0.8977994) # Dosis C
 ```
 Usando la funcion inversa Probit^(-1)(0.7) para igualar nuesto sistema, obtenemos que la dosis minima para matar al 70% de los insectos es de  `r a` para el insecticida A, `r b` para el insecticida B y `r c` para el insecticida C
 
