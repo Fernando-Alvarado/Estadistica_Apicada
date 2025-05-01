@@ -1,0 +1,45 @@
+---
+author: "Fernando Alvarado"
+output: html_document
+---
+  
+
+
+  
+```{r setup, include=FALSE}
+
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.align = "center",
+  fig.dim = c(5.0, 4.0),
+  fig.pos = "H",
+  #Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+  message = FALSE,
+  warning = FALSE,
+  error = F
+)
+
+#Librerias necesarias
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(esquisse)
+library(factoextra) #Sirve para sumar graficas
+library(knitr) # Hacer tablas
+
+
+```
+
+# Analisis Heptatlón
+
+
+```{r}
+#Cargamos los datos
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_3/Eje_5/Data")
+#Leyendo un txt
+datos <- read.table("heptathlon_2016.txt", header = TRUE, sep = "", stringsAsFactors = FALSE)
+
+```

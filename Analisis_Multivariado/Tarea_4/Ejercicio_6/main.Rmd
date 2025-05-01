@@ -1,0 +1,84 @@
+---
+author: "Fernando Alvarado"
+output: html_document
+---
+  
+
+
+  
+```{r setup, include=FALSE}
+
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.align = "center",
+  fig.dim = c(5.0, 4.0),
+  fig.pos = "H",
+  #Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+  message = FALSE,
+  warning = FALSE,
+  error = F
+)
+
+#Librerias necesarias
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(esquisse)
+library(factoextra) #Sirve para sumar graficas
+library(knitr) # Hacer tablas
+
+library(readxl)
+library(expm) # Para raíz cuadrada de matrices
+library(ca)   # Para hacer ca
+
+```
+
+
+
+
+```{r}
+#Cargamos los datos
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_4/Ejercicio_6/Data")
+#Leyendo un txt
+
+data1 <-  read_excel("women2.xls")
+data2 <-  read_excel("women.xls")
+```
+
+
+
+```{r}
+data2
+```
+
+
+```{r}
+data1
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+

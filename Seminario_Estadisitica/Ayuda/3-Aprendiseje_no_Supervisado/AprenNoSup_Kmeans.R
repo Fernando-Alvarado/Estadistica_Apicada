@@ -1,25 +1,25 @@
 # Ejemplo del uso
-# de la técnica de k-means para
+# de la t?cnica de k-means para
 # obtener conglomerados en R
 
 rm(list = ls(all.names = TRUE))
 gc()
 
-setwd("~/GitHub/Notas 2025-2/ApreEstAut")
+#setwd("~/GitHub/Notas 2025-2/ApreEstAut")
 library(tidyverse)
 datos=mtcars
 help("mtcars")
 
 # 32 autos de 1974
-#	mpg	Miles/(US) gallon    -- Millas por galón
+#	mpg	Miles/(US) gallon    -- Millas por gal?n
 #	cyl	Number of cylinders     -- Num. de cilindros
 #	disp	Displacement (cu.in.) -- Desplazamiento del motor
 #	hp	Gross horsepower -- Caballos de fuerza
-#	drat	Rear axle ratio  -- Relación de eje trasero 
+#	drat	Rear axle ratio  -- Relaci?n de eje trasero 
 #	wt	Weight (1000 lbs)  -- Peso
 #	qsec	1/4 mile time    -- velocidad en segundos para recorrer 402 metros
 #	vs	Engine (0 = V-shaped, 1 = straight)  -- Tipo de motor 
-#	am	Transmission (0 = automatic, 1 = manual) -- Tipo de transmisión
+#	am	Transmission (0 = automatic, 1 = manual) -- Tipo de transmisi?n
 #	gear	Number of forward gears  -- Num. de cambios de velocidades
 #	carb	Number of carburetors  -- Num. de carburadores
 
@@ -27,33 +27,33 @@ summary(datos)
 
 #Realmente
 # cyl, gear y carb se pueden trabajar como variables ordinales
-# vs y am son variables categóricas binarias
+# vs y am son variables categ?ricas binarias
 
 # Por ahora consideremos todas como variables continuas
 
 
 ######################
-# La función kmeans
+# La funci?n kmeans
 set.seed(2)
-# K-means, K = 3 y 20 asignaciones aleatorias de clústeres iniciales 
-# Aquí x corresponde a los datos que ya deben estar 
+# K-means, K = 3 y 20 asignaciones aleatorias de cl?steres iniciales 
+# Aqu? x corresponde a los datos que ya deben estar 
 # preprocesados para mejores resultados
 k.means <- kmeans(x = datos, centers = 3, nstart = 20)
-# Como no se estandarizó, las variables
-# en la mayor escala dominan la creación de 
+# Como no se estandariz?, las variables
+# en la mayor escala dominan la creaci?n de 
 # conglomerados
 
 
-# La asignación a un cluster se puede obtener con $cluster
+# La asignaci?n a un cluster se puede obtener con $cluster
 table(k.means$cluster)
 
-# Es de interés analizar qué distingue a los clusters
+# Es de inter?s analizar qu? distingue a los clusters
 # e interpretar los clusters
 library(GGally)
 datosc3=datos
 datosc3$k3=factor(k.means$cluster)
 
-# Se puede hacer un análisis gráfico o bien con estadísticas
+# Se puede hacer un an?lisis gr?fico o bien con estad?sticas
 # por cluster
 X11()
 ggpairs(data=datosc3, title="Datos", aes(colour = k3))
@@ -67,13 +67,13 @@ datosc3_Res$estadisticas
 library(psych)
 describeBy(datosc3 ~ k3,mat=TRUE)
 
-# Una posible interpretación.
-# Los más ahorradores en 1, mientras que 
-# en 2 los más rápidos aunque no tan ahorradores.
-# El 3 se parece más al 2, pero con todos con 
-# transmisión automática.
+# Una posible interpretaci?n.
+# Los m?s ahorradores en 1, mientras que 
+# en 2 los m?s r?pidos aunque no tan ahorradores.
+# El 3 se parece m?s al 2, pero con todos con 
+# transmisi?n autom?tica.
 
-# A veces los CP o alguna proyección de interés sirve 
+# A veces los CP o alguna proyecci?n de inter?s sirve 
 # de apoyo para describir el resultado
 R.CP=prcomp(datos, scale = TRUE)
 library(factoextra)
@@ -95,11 +95,11 @@ biplot(pca,group=datosc3$k3, pch=c(0,21,4)[datosc3$k3])
 
 
 ### Otros aspectos importantes
-# ¿cuál es el valor de K a elegir?
+# ?cu?l es el valor de K a elegir?
 
-# Usando un paquete para calcular algún índice 
+# Usando un paquete para calcular alg?n ?ndice 
 # para varios valores de k,
-# por ejemplo, "silhouette" (se elige el máximo)
+# por ejemplo, "silhouette" (se elige el m?ximo)
 
 set.seed(2)
 X11()
@@ -109,41 +109,41 @@ figS$data
 
 # Otro paquete.
 # Usando una salida en particular calculada a mano
-# Difiere un poco en la definición, así que se debe usar
+# Difiere un poco en la definici?n, as? que se debe usar
 # para calcular para los diferentes valores de k a explorar
-# (para Silhouette, usa la media del índice por cluster) 
+# (para Silhouette, usa la media del ?ndice por cluster) 
 library(clusterCrit)
 intCriteria(as.matrix(datos),as.integer(datosc3$k3),c("Silhouette"))
 intCriteria(as.matrix(datos),kmeans(x = datos, centers = 2, nstart = 20)$cluster,c("Silhouette"))
 
 # Otro paquete.
-# Una versión de k-means en un paquete que tiene muchos índices
-# La opción "alllong" puede ser muy tardada, pero arroja un resumen
-# de los índices implementados
+# Una versi?n de k-means en un paquete que tiene muchos ?ndices
+# La opci?n "alllong" puede ser muy tardada, pero arroja un resumen
+# de los ?ndices implementados
 library(NbClust)
 X11()
 k_clus <- NbClust(data = datos, distance = "euclidean", min.nc = 2,
                   max.nc = 6, method = "kmeans", index = "alllong")
-# Todos los índices calculados por valor de k evaludado
+# Todos los ?ndices calculados por valor de k evaludado
 k_clus$All.index
 
-# El valor de k seleccionado por cada índice
+# El valor de k seleccionado por cada ?ndice
 k_clus$Best.nc
 
-# También se puede calcular sólo un índice
+# Tambi?n se puede calcular s?lo un ?ndice
 k_clus_Sil <- NbClust(data = datos, distance = "euclidean", min.nc = 2,
                       max.nc = 6, method = "kmeans", index = "silhouette")
 k_clus_Sil$All.index
 k_clus_Sil$Best.nc
-# Esta función corre la función kmeans, así que puede también
-# dar la partición asociada al mejor valor de k
+# Esta funci?n corre la funci?n kmeans, as? que puede tambi?n
+# dar la partici?n asociada al mejor valor de k
 k_clus_Sil$Best.partition
 
-# comparando con el cálculo en intCriteria, hay una diferencia
+# comparando con el c?lculo en intCriteria, hay una diferencia
 intCriteria(as.matrix(datos),as.integer(k_clus_Sil$Best.partition),c("Silhouette"))
 
 
-# Otra forma de calcular el índice "Silhouette"
+# Otra forma de calcular el ?ndice "Silhouette"
 library(cluster)
 ss=silhouette(k_clus_Sil$Best.partition, dist(datos))
 ssdf=ss[,1:3]
@@ -156,19 +156,19 @@ mean(ssmean$mean)
 
 
 #################################
-# Otros aspectos básicos a considerar
+# Otros aspectos b?sicos a considerar
 
-#### Preprocesamiento básico
+#### Preprocesamiento b?sico
 
 # Usar datos con media cero y varianza 1
 
 datosst=scale(datos, scale = TRUE)
-#Repetir análisis, pero ahora con datosst
+#Repetir an?lisis, pero ahora con datosst
 summary(datosst)
 
-# La función preProcess en paquete caret también tiene 
-# herramientas para preprocesar (muy útiles para predicción)
-# La usaremos de varias formas sólo para mostrar opciones
+# La funci?n preProcess en paquete caret tambi?n tiene 
+# herramientas para preprocesar (muy ?tiles para predicci?n)
+# La usaremos de varias formas s?lo para mostrar opciones
 library(caret)
 str(datos)
 # Guarda los valores para realizar el preprocesamiento
@@ -181,16 +181,16 @@ datosOrd <- predict(preProcOrd, datos[,c("cyl", "gear","carb")])
 
 # Los datos preprocesados
 datosv2=as.data.frame(cbind(datosCont, datosOrd, datos[,c("vs", "am")]))
-# Repetir análisis con datosv2
+# Repetir an?lisis con datosv2
 summary(datosv2)
 
-###Tidymodels también sirve para preprocesar los datos
+###Tidymodels tambi?n sirve para preprocesar los datos
 library(tidyverse)
 library(tidymodels)
-rec <- recipe(~., data = datos) #se define lo básico de los datos
+rec <- recipe(~., data = datos) #se define lo b?sico de los datos
 regla_trans <- rec %>% 
   step_normalize(all_numeric()) #se agregan reglas de preprocesamiento
-datos_estimates <- prep(regla_trans, training = datos)  #se calcula cómo se harán esas transformaciones
+datos_estimates <- prep(regla_trans, training = datos)  #se calcula c?mo se har?n esas transformaciones
 datos_trans <- bake(datos_estimates, datos) #se aplica el preprocesamiento
 summary(datos_trans)
 
@@ -198,24 +198,24 @@ summary(datos_trans)
 ######################
 # Usar los componentes principales. 
 # Varias opciones de acuerdo
-# con el uso de matriz de covarianza o correlación,
-# así como de rotación.
-# También cuántos componentes usar, 
-# por ejemplo sólo tres
+# con el uso de matriz de covarianza o correlaci?n,
+# as? como de rotaci?n.
+# Tambi?n cu?ntos componentes usar, 
+# por ejemplo s?lo tres
 summary(R.CP)
 datosCP=R.CP$x[,1:3]
 
-# Repetir análisis con datosCP
+# Repetir an?lisis con datosCP
 summary(datosCP)
 
-# O sólo los CP que acumulen 80% de varianza
+# O s?lo los CP que acumulen 80% de varianza
 
 R.CPsum=summary(R.CP)
 R.CPsum$importance
 numCP=min(which(R.CPsum$importance[3,]>.8))
 datosCP80=R.CP$x[,1:numCP]
 
-# Repetir análisis con datosCP
+# Repetir an?lisis con datosCP
 summary(datosCP80)
 
 
@@ -226,13 +226,13 @@ summary(datosCP80)
 # Modificamos datos, incluyendo el metadato asociado 
 # al tipo de variables
 # Muchas funciones que trabajan con variables ordinales
-# requieren que se haga explícita esta definición
+# requieren que se haga expl?cita esta definici?n
 
-# En este caso, la función ordered() 
-# es una abreviación de factor(),
-# en donde se incluye la información del orden
-# y se hace explícito que es una variable
-# categórica ordinal.
+# En este caso, la funci?n ordered() 
+# es una abreviaci?n de factor(),
+# en donde se incluye la informaci?n del orden
+# y se hace expl?cito que es una variable
+# categ?rica ordinal.
 
 # Hay que revisar que el orden es adecuado
 datos2 <- within(datos, {
@@ -252,44 +252,44 @@ is.numeric(datos2$vs)
 
 
 
-### Una opción es calcular a mano la 
+### Una opci?n es calcular a mano la 
 # matriz de disimilaridades entre todos 
 # los pares de observaciones
 
 # daisy() del paquete library(cluster)
-# opción "gower" toma en cuenta el tipo de variable
+# opci?n "gower" toma en cuenta el tipo de variable
 diss_mat <- daisy(datos2, metric = "gower")
 summary(diss_mat)
 #31*(32)/2  # la diagonal es cero
 
-# función pam() en paquete cluster
-# versión similar a kmeans que permite
+# funci?n pam() en paquete cluster
+# versi?n similar a kmeans que permite
 # modificar la disimilaridad
 # Tienen como opciones "euclidean" y "manhattan"
-# Aunque es más general al permitir incluir una
+# Aunque es m?s general al permitir incluir una
 # calculada por otras funciones, daisy() o dist()
 
-# También usa medoids en lugar de medias 
-# (una observación actua como representante)
+# Tambi?n usa medoids en lugar de medias 
+# (una observaci?n actua como representante)
 
 
 pam_clust <- pam(diss_mat, 3)
 summary(pam_clust)
 
-# calcula el índice silhouette para tomar una decisión
-# con $clustering se obtiene la agrupación
+# calcula el ?ndice silhouette para tomar una decisi?n
+# con $clustering se obtiene la agrupaci?n
 
 X11()
 biplot(pca,group=pam_clust$clustering, pch=c(0,21,4)[pam_clust$clustering])
 
-# Función para automatizar valor de k
+# Funci?n para automatizar valor de k
 library(fpc)
-pc = pamk(diss_mat, krange=2:6, criterion="asw") #aquí se prefieren 4 grupos con el average silhouette width
+pc = pamk(diss_mat, krange=2:6, criterion="asw") #aqu? se prefieren 4 grupos con el average silhouette width
 pc[2:3]
 
 
 
-# Otra opción es usar kproto() del paquete clustMixType
+# Otra opci?n es usar kproto() del paquete clustMixType
 
 library(clustMixType)
 
@@ -302,7 +302,7 @@ valk$indices
 
 X11()
 biplot(pca,group=kpr_clust$cluster, pch=c(0,21,4)[kpr_clust$cluster])
-#Quizás más fácil de interpretar, pues la separación
+#Quiz?s m?s f?cil de interpretar, pues la separaci?n
 #se explica casi por el CP1
 
 
@@ -311,16 +311,16 @@ biplot(pca,group=kpr_clust$cluster, pch=c(0,21,4)[kpr_clust$cluster])
 #   clara() en cluster y mkmeans() en VBmix
 
 #########
-# usar CP calculados con una versión para datos mixtos
-# e.g. función FAMD en FactoMineR. Otra opción paquete PCAmixdata
+# usar CP calculados con una versi?n para datos mixtos
+# e.g. funci?n FAMD en FactoMineR. Otra opci?n paquete PCAmixdata
 library(FactoMineR)
 CP_datos2 <- FAMD(datos2, ncp=5, graph=FALSE)
 summary(CP_datos2)
 datosCP=CP_datos2$ind$coord
 summary(datosCP)
-# Repetir análisis con datosCP
+# Repetir an?lisis con datosCP
 
-# También se podrían usar esas dimensiones para visualizar
+# Tambi?n se podr?an usar esas dimensiones para visualizar
 X11()
 plot(CP_datos2, choix = c("quanti"), axes = c(1, 2))
 X11()
@@ -364,7 +364,7 @@ biplot(CPmix,choose=c(1,2,3))
 datosCPmix=CPmix$scores
 summary(datosCPmix)
 
-#repetir análisis con datosCPmix
+#repetir an?lisis con datosCPmix
 
 # o visualizar usando datosCPmix
 datosCPmixwC=as.data.frame(datosCPmix)
