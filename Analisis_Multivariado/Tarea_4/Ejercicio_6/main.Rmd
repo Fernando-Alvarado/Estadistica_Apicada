@@ -30,6 +30,9 @@ library(esquisse)
 library(factoextra) #Sirve para sumar graficas
 library(knitr) # Hacer tablas
 
+
+library(ca)
+library(ggplot2)
 library(readxl)
 library(expm) # Para raíz cuadrada de matrices
 library(ca)   # Para hacer ca
@@ -44,10 +47,11 @@ library(ca)   # Para hacer ca
 setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_4/Ejercicio_6/Data")
 #Leyendo un txt
 
-data1 <-  read_excel("women2.xls")
-data2 <-  read_excel("women.xls")
-```
 
+data1 <-  read_excel("women.xls")
+data2 <-  read_excel("women2.xls")
+
+```
 
 
 ```{r}
@@ -55,8 +59,100 @@ data2
 ```
 
 
+
 ```{r}
-data1
+
+#Funcion que hara mas facil el analsis de nuestros datos ya que hara toodo el procesos de manera automatica 
+analisis_CA <- function(data, cat=0){#data: data que queremos analizar, cat: si tiene subcategoria como h y m
+  
+# Guardando los nombre sde las columnas
+nombres_columnas <- colnames(data)
+
+# Guardar nombress de las filas
+nombres_filas <- data[[1]]
+
+#Filtrando para quitar la primer columna y que no nos haga estorbo
+filtrado <- data %>%
+  select(-1) %>%
+  mutate(across(everything(), ~as.numeric(.)))  # convierte a numéricos
+
+
+# Convertir a matriz
+datamatriz1 <- as.matrix(filtrado)
+
+# Nombres a nuestras filas y columnas de nuestra matriz
+rownames(datamatriz1) <- nombres_filas
+colnames(datamatriz1) <- nombres_columnas[-1]
+
+
+
+# Realizar el análisis de correspondencias
+analisis1_ca <- ca(datamatriz1)
+
+# Ver resultado
+sumAnalisis <-  summary(analisis1_ca)
+
+colnames(sumAnalisis$rows)
+
+
+coord_rows = data.frame(
+  Dim1 = sumAnalisis$rows[, " k=1"],
+  Dim2 = sumAnalisis$rows[, " k=2"],
+  label = rownames(datamatriz1)
+)
+
+coord_cols = data.frame(
+  Dim1 = sumAnalisis$columns[, " k=1"],
+  Dim2 = sumAnalisis$columns[, " k=2"],
+  label = colnames(datamatriz1)
+)
+
+
+
+if(cat == 1){
+  coord_rows <- coord_rows %>%
+  mutate(
+    genero = case_when(
+      grepl("f$", label) ~ "Mujer",
+      grepl("m$", label) ~ "Hombre",
+      TRUE ~ "Otro"
+    )
+  )
+  ggplot() +
+  geom_text(data = coord_rows,
+            aes(x = Dim1, y = Dim2, label = label, color = genero),
+            size = 3) +
+  geom_text(data = coord_cols,
+            aes(x = Dim1, y = Dim2, label = label),
+            color = "#57198e", size = 5) +
+  scale_color_manual(values = c("Hombre" = "#001c8f", "Mujer" = "#e91e63", "Otro" = "#424242")) +
+  theme_minimal() +
+  labs(title = "ACM con matriz indicadora de vinos, coloreado por género",
+       x = "Dimensión 1", y = "Dimensión 2",
+       color = "Sexo")
+  
+  
+}else {
+  # Coordenadas principales
+
+# Graficar
+ggplot() +
+  geom_text(data = coord_rows, aes(x = Dim1, y = Dim2, label = label), color = "#00838f", size = 3) +
+  geom_text(data = coord_cols, aes(x = Dim1, y = Dim2, label = label), color = "#57198e", size = 5) +
+  theme_minimal() +
+  labs(title = "ACM con matriz indicadora de vinos",
+       x = "Dimensión 1", y = "Dimensión 2")
+}
+}
+
+
+```
+
+
+
+
+```{r}
+analisis_CA(data1, 0 )
 ```
 
 
@@ -64,18 +160,9 @@ data1
 
 
 
-
-
-
-
-
-
 ```{r}
-
+analisis_CA(data2, 1 )
 ```
-
-
-
 
 
 
