@@ -205,6 +205,73 @@ ggplot(data=df_labels,aes(x=x,y=y))+
 ##############################################################################
 
 
+# Instalar y cargar librerías necesarias
+# install.packages("ca") # Descomenta si aún no lo tienes
+library(ca)
+library(ggplot2)
+
+# 1. Definir la matriz de contingencia
+health = matrix(c(243,789,167,18,6,
+                  220,809,164,35,6,
+                  147,658,181,41,8,
+                  90,469,236,50,16,
+                  53,414,306,106,30,
+                  44,267,284,98,20,
+                  20,136,157,66,17),
+                nrow = 7, byrow = TRUE)
+
+rownames(health) = c("16-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+")
+colnames(health) = c("Muy Bueno", "Bueno", "Regular", "Malo", "Muy Malo")
+
+# 2. Aplicar el análisis de correspondencias
+res_ca = ca(health)
+
+# 3. Obtener coordenadas desde summary (evita error con $coord)
+summary_ca = summary(res_ca)
+
+summary_ca
+
+names(summary_ca)
+#"scree" → Información sobre la inercia explicada (porcentaje de varianza).
+#"rows" → Información detallada de las filas (grupos de edad).
+#"columns" → Información detallada de las columnas (niveles de salud).
+
+#Extraer la informacion de nuestro summary 
+summary_ca$rows
+summary_ca$columns
+
+
+#Ver como se llaman las columnas de nuestros datos
+names(summary_ca$rows)
+names(summary_ca$columns)
+
+colnames(summary_ca$rows) #En caso de que el nombre tenga algun espacio o algo 
+
+# Extraer coordenadas de filas
+coord_rows = data.frame(
+  Dim1 = summary_ca$rows[," k=1"],
+  Dim2 = summary_ca$rows[," k=2"],
+  label = rownames(health)
+)
+
+# Extraer coordenadas de columnas
+coord_cols = data.frame(
+  Dim1 = summary_ca$columns[," k=1"],
+  Dim2 = summary_ca$columns[," k=2"],
+  label = colnames(health)
+)
+
+# Graficar
+library(ggplot2)
+
+ggplot() +
+  geom_text(data = coord_rows, aes(x = Dim1, y = Dim2, label = label), size = 3) +
+  geom_text(data = coord_cols, aes(x = Dim1, y = Dim2, label = label), color = "green", size = 3) +
+  theme_minimal() +
+  labs(title = "Análisis de correspondencias: Edad vs Estado de Salud",
+       x = "Dimensión 1", y = "Dimensión 2")
+
+
 ##############################################################################
 ##############################################################################
 # Datos salud (método svd: algoritmo 2)
@@ -536,6 +603,65 @@ cumsum(contribucion)
 ##############################################################################
 
 ##############################################################################
+# Usando la libreria CA
+
+# Librerías necesarias
+library(ca)
+library(ggplot2)
+
+# Matriz de vinos (idéntica a la tuya)
+vinos = matrix(c(1,0,0,0,1,0,1,1,0,0,1,0,0,1,0,1,0,1,0,1,0,1,
+                 0,1,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,1,0,1,0,
+                 0,1,1,0,0,1,0,0,1,1,0,1,0,0,1,0,0,1,1,0,1,0,
+                 0,1,1,0,0,1,0,0,1,1,0,1,0,0,1,0,1,0,1,0,1,0,
+                 1,0,0,0,1,0,1,1,0,0,1,0,0,1,0,1,1,0,0,1,0,1,
+                 1,0,0,1,0,0,1,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1),
+               nrow=6, ncol=22, byrow=TRUE)
+
+# Etiquetas opcionales
+rownames(vinos) = paste0("W", 1:6)
+colnames(vinos) = c("Fruity-Y", "Fruity-N", "Woody-Y", "Woody-S", "Woody-N",
+                    "Coffee-Y", "Coffee-N", "RedFruit-Y", "RedFruit-N",
+                    "Roasted-Y", "Roasted-N", "Vanilla-Y", "Vanilla-S", "Vanilla-N",
+                    "Woody2-Y", "Woody2-N", "Fruity3-Y", "Fruity3-N",
+                    "Butter-Y", "Butter-N", "Woody3-Y", "Woody3-N")
+
+# Análisis de correspondencias
+res_ca = ca(vinos)
+
+# Resumen con coordenadas
+summary_ca = summary(res_ca)
+
+colnames(summary_ca$rows)
+
+
+# Coordenadas principales
+coord_rows = data.frame(
+  Dim1 = summary_ca$rows[, " k=1"],
+  Dim2 = summary_ca$rows[, " k=2"],
+  label = rownames(vinos)
+)
+
+coord_cols = data.frame(
+  Dim1 = summary_ca$columns[, " k=1"],
+  Dim2 = summary_ca$columns[, " k=2"],
+  label = colnames(vinos)
+)
+
+# Graficar
+ggplot() +
+  geom_text(data = coord_rows, aes(x = Dim1, y = Dim2, label = label), color = "red", size = 4) +
+  geom_text(data = coord_cols, aes(x = Dim1, y = Dim2, label = label), color = "darkgreen", size = 3) +
+  theme_minimal() +
+  labs(title = "ACM con matriz indicadora de vinos",
+       x = "Dimensión 1", y = "Dimensión 2")
+
+
+
+##############################################################################
+
+##############################################################################
+# Análisis de correspondencia múltiple para la encuesta
 # Análisis de correspondencia múltiple para la encuesta
 # sobre la familia y los cambios de rol (1994)
 women = read_xls(here('../Datos/women5.xls'))
