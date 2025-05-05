@@ -34,7 +34,13 @@ library(naniar )
 
 ```
 
-# Analisis Heptatlón
+
+# Análisis de Supervivencia
+
+Análisis de las personas que sobrevivieron a algún evento.  
+Estos datos contienen un total de **764 individuos**, provenientes de **3 ciudades diferentes** y divididos en **3 rangos de edad**.
+
+A continuación, veremos cómo se distribuyen nuestros datos, así como el número total de individuos en cada grupo y cuántos de ellos sobrevivieron.
 
 
 ```{r}
@@ -47,14 +53,6 @@ datos <- read.table("survival.txt", header = TRUE, sep = "", stringsAsFactors = 
 
 
 ```{r}
-
-```
-
-
-
-
-
-```{r}
 dum <- as.data.frame(datos)
 
 
@@ -64,11 +62,14 @@ dum <- dum %>%
     Age = as.factor(Age),
     City = as.factor(City)
   )
-summary(dum)
+
+
+resumen <- as.data.frame(summary(dum)) 
 
 
 
 
+kable(resumen, caption = "Resumen de los datos")
 ```
 
 ```{r}
@@ -89,8 +90,8 @@ data <- dum %>%
 data <- data %>%
   select(-c(Survival, Age, City))
 
-data
 
+kable(head(data), caption = "Matriz indicadora de nuestros datos")
 ```
 
 
@@ -106,59 +107,41 @@ rownames(df_Burt) <- colnames(data)  # Los nombres son los mismos en ambas dimen
 
 
 
-df_Burt
+
+
+kable(head(df_Burt), caption = "Matriz Burt de los datos")
 ```
 
 
 ```{r}
 
-
-analisis_CA <- function(data, cat = 0) {
-  library(ca)
-  library(ggplot2)
-  library(dplyr)
-
-  # Verificar si la matriz es de Burt
-  es_burt <- is.matrix(data) && nrow(data) == ncol(data) && all(rownames(data) == colnames(data))
-
-  if (!es_burt) {
-    # Caso normal (matriz indicadora)
-    nombres_columnas <- colnames(data)
-    nombres_filas <- data[[1]]
-    
-    datamatriz1 <- data %>%
-      select(-1) %>%
-      mutate(across(everything(), as.numeric)) %>%
-      as.matrix()
-    
-    rownames(datamatriz1) <- nombres_filas
-    colnames(datamatriz1) <- nombres_columnas[-1]
-  } else {
-    # Caso matriz de Burt (ya cuadrada con nombres)
-    datamatriz1 <- data
-  }
+analisis_CA <- function(data) {
 
   # Análisis de correspondencias
-  analisis1_ca <- ca(datamatriz1)
+  analisis1_ca <- ca(data)
   sumAnalisis <- summary(analisis1_ca)
 
-  # Limpiar nombres
+  # Limpiar nombres de columnas
   colnames(sumAnalisis$columns) <- trimws(colnames(sumAnalisis$columns))
 
   # Coordenadas principales
   coord_cols <- data.frame(
     Dim1 = sumAnalisis$columns[, "k=1"],
     Dim2 = sumAnalisis$columns[, "k=2"],
-    label = rownames(["Survival_Yes", "Survival_No", "Age_Young", "Age_middle", "Age_Old", "Boston", "Glamorgan", "Tokyo"])
+    label = c("Survival_Yes", "Survival_No", "Age_Young", "Age_middle", 
+          "Age_Old", "Boston", "Glamorgan", "Tokyo")
   )
 
   # Graficar
   ggplot(coord_cols, aes(x = Dim1, y = Dim2, label = label)) +
-    geom_text(color = "#57198e", size = 5) +
+    geom_text(color = "#00838f", size = 5) +
     theme_minimal() +
-    labs(title = if (es_burt) "AC con matriz de Burt" else "ACM con matriz indicadora de vinos",
-         x = "Dimensión 1", y = "Dimensión 2")
+    labs(
+      title = "AC con matriz de Burt",
+      x = "Componenete 1", y = "Componenete 2"
+    )
 }
+
 
 ```
 
@@ -168,19 +151,26 @@ analisis_CA <- function(data, cat = 0) {
 ```{r}
 
 # Ejecutar función corregida
-analisis_CA(df_Burt, 0)
+analisis_CA(df_Burt)
 
 
 
 ```
 
+### Análisis
 
+Observando los componentes, podemos ver que el **componente 1** distingue principalmente entre si la persona **sobrevivió o no**, mientras que el **componente 2** se relaciona más con la **edad** de los individuos.  
+Aunque no establece una separación perfectamente precisa, se puede observar una división general:  
+- En la parte inferior se agrupan personas **jóvenes** y **mayores**,  
+- Mientras que en la parte superior predominan personas de **edad media**.
 
+Analizando los elementos por separado, podemos ver que ciertas ciudades concentran personas encuestadas de rangos de edad específicos:
 
+- En **Tokyo**, la mayoría de las personas son **jóvenes**.
+- En **Glamorgan**, predominan personas de **edad media**.
+- En **Boston**, la mayoría son personas **mayores**.
 
-
-
-
+Este patrón se vuelve relevante al cruzar la variable de **edad** con la de **supervivencia**, ya que observamos que las personas más **jóvenes** tenían mayor probabilidad de sobrevivir en comparación con las personas
 
 
 
