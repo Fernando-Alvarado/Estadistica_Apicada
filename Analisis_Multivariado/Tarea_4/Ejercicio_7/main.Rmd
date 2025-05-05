@@ -29,7 +29,8 @@ library(dplyr)
 library(esquisse)
 library(factoextra) #Sirve para sumar graficas
 library(knitr) # Hacer tablas
-
+library(ca)
+library(naniar )
 
 ```
 
@@ -37,9 +38,163 @@ library(knitr) # Hacer tablas
 
 
 ```{r}
-#Cargamos los datos
-setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_3/Eje_5/Data")
+
+setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Analisis_Multivariado/Tarea_4/Ejercicio_7/Data")
 #Leyendo un txt
-datos <- read.table("heptathlon_2016.txt", header = TRUE, sep = "", stringsAsFactors = FALSE)
+datos <- read.table("survival.txt", header = TRUE, sep = "", stringsAsFactors = FALSE)
 
 ```
+
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+dum <- as.data.frame(datos)
+
+
+dum <- dum %>%
+  mutate(
+    Survival = as.factor(Survival),
+    Age = as.factor(Age),
+    City = as.factor(City)
+  )
+summary(dum)
+
+
+
+
+```
+
+```{r}
+data <- dum %>%
+  mutate(
+    Survival_Yes = ifelse(Survival == "Yes", 1, 0),
+    Survival_No = ifelse(Survival == "No", 1, 0),
+    Age_Young = ifelse(Age == "<50", 1, 0),
+    Age_middle = ifelse(Age == "50-69", 1, 0),
+    Age_Old = ifelse(Age == ">69", 1, 0),
+    Boston = ifelse(City == "Boston", 1, 0),
+    Glamorgan = ifelse(City == "Glamorgan", 1, 0),
+    Tokyo = ifelse(City == "Tokyo", 1, 0),
+    
+  )
+
+
+data <- data %>%
+  select(-c(Survival, Age, City))
+
+data
+
+```
+
+
+```{r}
+data_matrix <- as.matrix(data)
+data_matrix_T <- t(data_matrix)
+
+df_Burt <- data_matrix_T %*% data_matrix
+
+
+colnames(df_Burt) <- colnames(data)
+rownames(df_Burt) <- colnames(data)  # Los nombres son los mismos en ambas dimensiones
+
+
+
+df_Burt
+```
+
+
+```{r}
+
+
+analisis_CA <- function(data, cat = 0) {
+  library(ca)
+  library(ggplot2)
+  library(dplyr)
+
+  # Verificar si la matriz es de Burt
+  es_burt <- is.matrix(data) && nrow(data) == ncol(data) && all(rownames(data) == colnames(data))
+
+  if (!es_burt) {
+    # Caso normal (matriz indicadora)
+    nombres_columnas <- colnames(data)
+    nombres_filas <- data[[1]]
+    
+    datamatriz1 <- data %>%
+      select(-1) %>%
+      mutate(across(everything(), as.numeric)) %>%
+      as.matrix()
+    
+    rownames(datamatriz1) <- nombres_filas
+    colnames(datamatriz1) <- nombres_columnas[-1]
+  } else {
+    # Caso matriz de Burt (ya cuadrada con nombres)
+    datamatriz1 <- data
+  }
+
+  # Análisis de correspondencias
+  analisis1_ca <- ca(datamatriz1)
+  sumAnalisis <- summary(analisis1_ca)
+
+  # Limpiar nombres
+  colnames(sumAnalisis$columns) <- trimws(colnames(sumAnalisis$columns))
+
+  # Coordenadas principales
+  coord_cols <- data.frame(
+    Dim1 = sumAnalisis$columns[, "k=1"],
+    Dim2 = sumAnalisis$columns[, "k=2"],
+    label = rownames(["Survival_Yes", "Survival_No", "Age_Young", "Age_middle", "Age_Old", "Boston", "Glamorgan", "Tokyo"])
+  )
+
+  # Graficar
+  ggplot(coord_cols, aes(x = Dim1, y = Dim2, label = label)) +
+    geom_text(color = "#57198e", size = 5) +
+    theme_minimal() +
+    labs(title = if (es_burt) "AC con matriz de Burt" else "ACM con matriz indicadora de vinos",
+         x = "Dimensión 1", y = "Dimensión 2")
+}
+
+```
+
+
+
+
+```{r}
+
+# Ejecutar función corregida
+analisis_CA(df_Burt, 0)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
