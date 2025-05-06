@@ -1,0 +1,254 @@
+---
+title: "Introducción al Bootstrap"
+author: "César Valle"
+date: "21/10/2024"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(8.0, 6.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(boot)       # Para el método bootstrap
+```
+
+# Introducción
+Como hemos visto hasta este momento, no sólo en este curso, sino también de cursos anteriores, siempre que nosotros pretendemos realizar una estimación sobre algún tipo de dato, requerimos de conocer su distribución, por ejemplo, en los modelos lineales generalizados, buscamos que la variable Y cumpla con alguna distribución de la familia exponencial de dispersión para poder trabajar. Sin embargo, ¿cómo podríamos realizar inferencia de variables cuya distribución desconocemos?
+
+Aquí es cuando entra el método conocido como bootstrap no paramétrico, el cual es llamado así por no depender de una distribución en particular, y esto es lo que veremos en esta ayudantía 
+
+# El método bootstrap
+Es un método de remuestreo en el que una vez que se tiene una muestra de una población a estudiar, digamos $S$ de tamaño $n$, se procede a tomar una cantidad $B$ (o $R$, según la literatura), de submuestras de $S$ (cada una de tamaño $n$, y con reemplazo, para que haya variabilidad), es decir, tendríamos lo siguiente de momento 
+
+Tenemos nuestra muestra $S$
+$$S=\{x_1,x_2,\cdots,x_n\}$$
+Además de nuestras $B$ submuestras, digamos 
+$$s_1=\{x_1^1, x_2^1,\cdots,x_n^1\}$$
+$$s_2=\{x_1^2, x_2^2,\cdots,x_n^2\}$$
+.
+
+.
+
+.
+
+$$s_B=\{x_1^B, x_2^B,\cdots,x_n^B\}$$
+Donde el superíndice determina a qué submuestra pertenece
+
+De momento, por facilidad, supongamos que nos interesa estimar la media de la población, entonces lo que haríamos en este punto es calcular la media para cada una de las submuestras, y tendríamos el siguiente conjunto, lo denotaremos por $\overline{X}_{boot}$, este conjunto nos será de utilidad más adelante, pero de momento, será conocida como la distribución bootstrap de $\overline{X}$
+
+$$\overline{X}_{boot}=\{\overline{X_1},\overline{X_2},\overline{X_3},\cdots,\overline{X_B}\}$$
+Donde 
+$$\overline{X_1}=\sum_{i=1}^n\frac{x_i^1}{n}$$
+$$\overline{X_2}=\sum_{i=1}^n\frac{x_i^2}{n}$$
+.
+
+.
+
+.
+
+$$\overline{X_B}=\sum_{i=1}^n\frac{x_i^B}{n}$$
+Con estos valores, podemos realizar estimaciones, la estimación por el método bootstrap, sería calcular la media de la estadística en cuestión. Es decir el estimador bootstrap $\widehat{X}_{boot}$ sería:
+$$\widehat{X}_{boot}=\sum_{i=1}^B\frac{\overline{X_i}}{B}$$
+Es decir, la estimación de la media por medio del método bootstrap sería la media de las medias de cada submuestra.
+
+Hecho esto, rara vez se utilizaría esta estimación en la práctica, sin embargo, podríamos utilizarla para otros aspectos que son importantes.
+
+En primer lugar, ¿cómo podemos asegurar que el método bootstrap nos será de utilidad?
+
+Para eso, utilizamos un valor llamado bias, el cual se calcula de la siguiente manera
+
+$$bias = \widehat{X}_{boot}-\overline{X}$$
+Es decir, la estimación mediante el método bootstrap menos el valor de la media de la población original
+
+Con el bias, tendremos una regla de dedo, mientras más pequeño con respecto a la escala de los datos sea, mejor funciona bootstrap
+
+Por otro lado, también vamos a necesitar de la desviación estándar, pues algo con lo que sí se suele trabajar es con intervalos de confianza, y la desviación estándar se calcula como:
+
+$$se_{boot}=\sqrt{\frac{1}{B-1}\sum_{i=1}^B(\overline{X_i}-\widehat{X}_{boot})^2}$$
+Con esta desviación estándar podemos calcular los intervalos de confianza, para esto existen múltiples métodos, en partícular nos enfocaremos en dos métodos, que son los más sencillos de trabajar
+\begin{itemize}
+  \item[i] Método Teórico: En este caso, si se observa que la distribución Booststrap de la estadística se aproxima a una normal, podemos construir el intervalo de confianza fácilmente aprovechando dicha distribución
+  \item[ii] Método de Precentiles: En este caso se utilizan los percentiles $\frac{\alpha}{2}$ y $1-\frac{\alpha}{2}$ de la distribución bootstrap, donde $(1-\alpha)\times100\%$ es la confianza, así, si tenemos ordenados los valores de la distribución Bootstrap de menor a mayor como $\overline{X}_{(1)}<\overline{X}_{(2)}<\cdots<\overline{X}_{(B)}$, entonces, las posiciones de los límites inferior y superior serían: $\lim_{inf}=(B+1)\frac{\alpha}{2}$ y $\lim_{sup}=(B+1)(1-\frac{\alpha}{2})$
+  
+Redondeando al valor entero más cercano 
+\end{itemize}
+
+Sin embargo, esto funciona no sólo para la media, también para cualquier estadística $\tau$ de una muestra, y el proceso es exactamente el mismo que el realizado para la media, tenemos
+
+## Bootstrap para cualquier estadística
+
+Si tenemos una muestra $S=\{x_1,x_2,\cdots,x_n\}$ y queremos calcular una estadística $\tau(S)$, entonces calculamos $B$ submuestras con repetición, y tendríamos $s_1=\{x_1^1, x_2^1,\cdots,x_n^1\}$, $s_2=\{x_1^2, x_2^2,\cdots,x_n^2\},\cdots,s_B=\{x_1^B, x_2^B,\cdots,x_n^B\}$, y a cada submuestra le aplicamos la función, de forma que tenemos
+
+$$T_{boot}=\{\tau(s_1), \tau(s_2),\cdots,\tau(s_B)\}$$
+Que sería la distribución bootstrap de la estadística $\tau(S)$
+
+Y de manera análoga a lo que realizamos previamente, podemos calcular la estimación bootstrap como
+$$\widehat{T}_{boot}=\sum_{i=1}^B\frac{\tau(s_i)}{B}$$
+
+Y la estimación de la desviación estándar sería 
+$$se_{boot}=\sqrt{\frac{1}{B-1}\sum_{i=1}^B(\tau(s_i)-\widehat{T}_{boot})^2}$$
+Todo análogo a lo que realizamos con la media
+
+Ahora procedamos con un ejemplo práctico, que además nos ayudará a visibilizar las ventajas de este método
+
+# Ejemplo práctico 
+Para este caso trabajaremos con un cojunto de datos, en donde se encuentra el procentaje de la cuenta que se le proporcionó al mesero a modo de propina, el interés es calcular un intervalo de confianza para la media, lo primero es verificar el comportamiento de nuestros datos
+
+```{r definir, echo=TRUE}
+# Paso 1: Definir la muestra original
+propinas <- c(22.7, 16.3, 13.6, 16.8, 29.9, 15.9, 14.0, 15.0, 14.1, 18.1, 22.8, 27.6,
+              16.4, 16.1, 19.0, 13.5, 18.9, 20.2, 19.7, 18.2, 15.4, 15.7, 19.0, 11.5,
+              18.4, 16.0, 16.9, 12.0, 40.1, 19.2)
+
+hist(propinas)
+```
+
+Podemos ver que en realidad es dificil encontrar una distribución para nuestros datos, además de que al tener un dato bastante grande, podríamos tener problemas por métodos usuales, procedamos entonces con el método bootstrap, primero debemos definir la estadística t que buscamos, en este caso es fácil
+
+```{r función, echo=TRUE}
+# Paso 2: Crear una función que calcule la media
+mean_tip <- function(data, indices) {
+  sample_data <- data[indices] #Tomamos una submuestra, de los índices especificados
+  return(mean(sample_data)) #Sacamos la media y eso queremos
+}
+#En este caso sería lo mismo para cualquier estadística t
+```
+
+A continuación aplicamos el método bootstrap y vemos la distribución bootstrap
+```{r aplicar_bootstrap, echo=TRUE}
+# Paso 3: Realizar el bootstrap manualmente
+set.seed(123) # Para reproducibilidad
+B <- 10000 # Número de muestras bootstrap 
+
+# Lo recomendable es 10 mil iteraciones, sin embargo, si hay
+# problemas con la capacidad de cómputo, se puede reducir a 1000
+
+bootstrap_means <- rep(NA, B)
+
+#Aquí calculamos los datos 
+for (i in 1:B) {
+  bootstrap_indices <- sample(1:length(propinas), replace = TRUE) 
+  #funcion sample: muestreo con reemplazo de los índices
+  bootstrap_means[i] <- mean_tip(propinas, bootstrap_indices)
+  #Aquí calculamos las medias
+}
+
+#Formas de ver el error
+bias_manual <- mean(bootstrap_means) - mean(propinas) 
+#Y la desviación estándar
+SE_manual <- sd(bootstrap_means)
+
+#Graficamos
+hist(bootstrap_means, main="Histograma de las Medias Bootstrap", 
+     xlab="Medias de Bootstrap", ylab="Frecuencia", col="lightblue")
+# Añadimos una línea para la media de las medias de bootstrap (estimación)
+abline(v=mean(bootstrap_means), col="red", lwd=2, lty=2)
+# Añadimos una línea para la media de la muestra original
+abline(v=mean(propinas), col="blue", lwd=1)
+# Añadir una leyenda
+legend("topright", legend=c("Media de Bootstrap manual", "Media de la Muestra"), 
+       col=c("red", "blue"), lty=c(2, 1), lwd=2)
+```
+
+Podemos ver que no luce como la distribución normal, pues aunque se parece, no se cumple la simetría
+Afortunadamente podemos trabajar con el método de percentiles, pero igualmente veamos el método teórico, para futuras referencias
+```{r CI, echo=TRUE}
+# Paso 4: Calcular el intervalo de confianza al 95%
+#Por percentiles
+alpha <- 0.05
+Percentiles <- quantile(bootstrap_means, probs = c(alpha/2, 1 - alpha/2)) #(0.025 y 0.975)
+#Tenemos el intervalo 16.57-20.7
+
+#Por teórico
+#Sabemos que el cuantil donde la normal estándar alcanza el 97.5% de probabilidad
+#es en 1.96, así que
+low<-mean(bootstrap_means)-1.96*SE_manual
+upp<-mean(bootstrap_means)+1.96*SE_manual
+
+Normal<-c(low,upp)
+
+#Además, una forma un poco más conservadora de calcular el intervalo de confianza
+#teórico, es utilizando una distribución t de student, con n-1 grados de libertado
+#(Con n el tamaño de muestra)
+extremos<-qt(c(alpha/2,1-alpha/2), length(propinas)-1)
+#la distribución es simétrica, pero nosotros tomamos los dos, para hacerlo más rápido
+Student<-extremos*SE_manual+mean(bootstrap_means)
+#Podemos ver que es un poco más amplio 
+
+#Y presentamos los datos en un dataframe
+intervalos<-rbind(Percentiles, Normal, Student)
+intervalos%>%kbl(booktabs = TRUE, align = "c")
+
+```
+
+Afortunadamente, también existe la paquetería "boot" que nos hará todo el trabajo, como veremos a continuación 
+
+```{r boot, echo=TRUE}
+# Paso 5: Uso de la librería 'boot'
+#Primero el objeto boot, nos devuelve información como el valor de nuestra
+#muestra, el bias, y la desviación estándar
+
+#Es necsario introducir los datos, la función t, y el número de valores R=B=1000
+#Es necesario fijar una semilla para reproducibilidad
+set.seed(123)
+boot_obj <- boot(data = propinas, statistic = mean_tip, R = B)
+
+#Después podemos calcular los intervalos de confianza, utilizamos el objeto boot
+#Y le indicamos el tipo de intervalo a calcular
+#De momento parece haber problemas con el tipo student, así que lo omitimos
+boot_ci <- boot.ci(boot_obj, type = c("norm", "perc"))
+boot_ci
+```
+
+Podemos ver que hay un poco de diferencia entre los intervalos sin embargo, es completamente normal dado que se está trabajando con el remuestreo y la aleatoriedad, pero igualmente podemos ver similitudes, no están muy alejados entre sí 
+
+```{r grafica, echo=TRUE}
+#Finalmente, realicemos una gráfica con ggplot
+# Creamos un dataframe para ggplot
+bootstrap_data <- data.frame(bootstrap_means)
+
+# Graficamos el histograma utilizando ggplot
+ggplot(bootstrap_data, aes(x = bootstrap_means)) +
+  geom_histogram(binwidth = 0.5, fill = "lightblue", color = "black") +
+  geom_vline(aes(xintercept = mean(bootstrap_means)), color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = mean(propinas)), color = "blue", size = 1) +
+  labs(title = "Histograma de las Medias Bootstrap",
+       x = "Medias de Bootstrap",
+       y = "Frecuencia") +
+  theme_minimal() +
+  scale_color_manual(values = c("red", "blue")) +
+  geom_vline(aes(xintercept = mean(bootstrap_means), color = "Media de Bootstrap"), size = 1) +
+  geom_vline(aes(xintercept = mean(propinas), color = "Media Original"), size = .5) +
+  guides(col = guide_legend(title = "Líneas"))
+
+```
+
+Notemos que en este caso, la estimación es muy buena, y las medias, en general, parecen sobreponerse (esto se confirma con el pequeño bias), sin embargo, se recomienda que se compruebe con $B = 1000$, y se verá que sí se puede obtener una diferencia

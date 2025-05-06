@@ -1,0 +1,319 @@
+---
+title: "Pruebas de hipótesis y otros modelos binarios"
+author: "César Valle"
+date: "17/03/2025"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 6.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(tidyverse)  # Más manejo de datos
+library(purrr)      # Para Map
+library(VGAM)       # Para los modelos multinomiales
+library(glmnet)     # Para más modelos multinomiales y otras funciones
+library(nnet)       # Para más modelos multinomiales
+library(mlogit)     # Para más modelos multinomiales
+```
+
+# Introducción
+Así como hemos trabajado hasta ahorita, una parte fundamental del trabajo son las pruebas de hipótesis, sin embargo, no hemos realizado algo muy elaborado en ese cas, y aquí vamos a comentar en profundidad el motivo, para eso, vamos a retomar los modelos multinomiales nominales, para que podamos comentar como se realizarían, pues es una herramienta muy útil, pero que tienen grandes diferencias con los modelos usuales
+
+# Recordando el summary
+Para esto, primero debemos recordar cómo lucía el summary del modelo con el que vamos a trabajar
+
+```{r recordando, echo=FALSE}
+#Cargamos los datos 
+DatosAg <- read.csv("datos.csv")
+
+#A los datos agregados
+Datos <- DatosAg %>%
+  
+#Los agrupamos por sexo, edad y respuesta 
+group_by(Sexo, Edad, Respuesta) %>%
+
+#Y escribimos tantos unos como respuestas
+do(data.frame(unos = rep(1, .$Frecuencia))) %>%
+
+#Regresamos a un dataframe
+as.data.frame() %>%
+
+#Transformamos las variables a tipo factor
+mutate("Sexo" = factor(Sexo, levels = c("Mujeres", "Hombres")), "Edad"=factor(Edad, levels = c("18-23","24-40","> 40")), "Respuesta" = factor(Respuesta, levels = c("No/poca", "Importante", "Muy importante")))
+
+#Guardamos nuestro modelo simplificado
+fit_no_int <- vglm(Respuesta ~ Sexo+Edad,
+                     family = multinomial(refLevel = "No/poca"),
+                     data = Datos)
+
+#Extraemos un summary
+summary(fit_no_int)
+```
+Con esto, lo que nos va a importar es notar el orden en que están colocados los coeficientes, esto debido a que, como hasta ahora, cuando realicemos pruebas de hipótesis vamos a tener que escribir todos nuestros coeficientes, y esto puede ser una tarea ardua, por lo que, se recomienda realizar pruebas de hipótesis sobre modelos pequeños
+
+Pero además, hay que tener cuidado con cómo vamos a introducir los valores de nuestro modelo, veamos a continuación
+
+# Pruebas de hipótesis 
+Vamos a comenzar realizando una que nosotros conocemos, la prueba F asociada a la tabla ANOVA, y vamos a verificar cómo funciona.
+
+## Prueba F asociada a la tabla ANOVA
+Para esto, no vamos a necesitar de una paquetería nueva, ni nada por el estilo, de hecho va a bastar con que reutilicemos la paquetería \textbf{multcomp}
+
+Con esto, procedamos:
+
+```{r pruebaAnova, echo=TRUE}
+#Matriz para la prueba F
+
+#Sabemos que tenmos 8 parámetros, 4 por cada comparación
+K=matrix(c(0,0,1,0,0,0,0,0,
+           0,0,0,1,0,0,0,0,
+           0,0,0,0,1,0,0,0,
+           0,0,0,0,0,1,0,0,
+           0,0,0,0,0,0,1,0,
+           0,0,0,0,0,0,0,1), ncol=8, nrow=6, byrow=TRUE)
+
+m=c(0,0,0,0,0,0)
+
+summary(glht(fit_no_int, linfct=K, rhs=m), test=Chisqtest())
+```
+Aquí hay que recordar que usamos el "Chisqtest" porque estamos trabajando con una $Y$ finita 
+
+
+## Otras pruebas de hipótesis
+
+Con esto en mente, lo realmente dificil es determinar qué pruebas de hipótesis realizar, pues hay que tener en cuenta lo que significa cada uno de los betas
+
+Por ejemplo, retomemos la forma en que se ven los componentes lineales para cada una de las categorías
+
+\begin{tabular}{|c|c|c|}
+ & Modelo sin interacciones, $j\in\{2,3\}$ & \\
+ Edad & Mujeres $(x_1 = 0)$ & Hombres $(x_1 = 1)$\\ \hline
+ 18-24 años & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_1^{(j)}$ \\ \hline
+ 24-40 años $(x_2 = 1)$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_2^{(j)}$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_1^{(j)}+\beta_2^{(j)}$\\ \hline
+ $>$40 años $(x_3 = 1)$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_3^{(j)}$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_1^{(j)}+\beta_3^{(j)}$
+\end{tabular}
+
+Entonces notemos que, posiblemente, necesitemos realizar múltiples pruebas para entender cosas en general, aunque también podemos realizar pruebas muy específicas, por ejemplo 
+
+Si quisieramos comprobar el efecto del sexo entre las respuestas \textbf{No/Poca} y \textbf{Importante}
+
+Entonces basta con que utilicemos esa comparación, que se vería de la siguiente forma:
+
+$$log(\dfrac{\pi_{\text{Importante}}}{\pi_{\text{No/Poca}}})=\beta_0^{(2)}+x_1\beta_1^{(2)}+x_2\beta_2^{(2)}+x_3\beta_3^{(2)}$$
+Entonces, si quisieramos comparar entre hombres y mujeres, sólo nos importaría el signo de $beta_1^{(2)}$, y tendríamos tres casos:
+
+\begin{itemize}
+\item{1.} Si es 0, entonces no tendríamos diferencia
+\item{2.} Si es mayor que 0, entonces, la probabilidad de considerar importante la dirección asistida y el aire acondicionado es mayor, comparada con la probabilidad de considerarlo poca, en hombres 
+\item{3.} Si es menor que 0, entonces, la probabilidad de considerar importante la dirección asistida y el aire acondicionado es menor, comparada con la probabilidad de considerarlo poca, en hombres 
+\end{itemize}
+
+Notemos que esto puede ser dificil de entender, pero veamos qué nos dice la prueba de hipótesis
+
+```{r comparacion, echo=FALSE}
+K=matrix(c(0,0,1,0,0,0,0,0), ncol=8, nrow=1, byrow=TRUE)
+
+m=c(0)
+
+summary(glht(fit_no_int, linfct=K, rhs=m), test=Chisqtest())
+```
+Notemos que en este caso, no se rechaza la prueba, y llegamos a que, en efecto, entre Importante y No/Poco importante, el sexo no tiene efecto 
+
+Pero, podríamos tener una duda más, ¿Cómo podríamos comparar a \textbf{Importante} con \textbf{Muy importante}?
+
+En realidad es más sencillo de lo que parece, al igual que hasta ahora, podemos verlo de la siguiente manera (vamos a utilizar equivalencias)
+
+$$\pi_{\text{Importante}}-\pi_{\text{Muy Importante}}(>=<)0\Longleftrightarrow\pi_{\text{Importante}}(>=<)\pi_{\text{Muy Importante}}\Longleftrightarrow\dfrac{\pi_{\text{Importante}}}{\pi_{\text{No/Poca}}}(>=<)\dfrac{\pi_{\text{Muy Importante}}}{\pi_{\text{No/Poca}}}\Longleftrightarrow$$
+$$\log(\dfrac{\pi_{\text{Importante}}}{\pi_{\text{No/Poca}}})(>=<)\log(\dfrac{\pi_{\text{Muy Importante}}}{\pi_{\text{No/Poca}}})\Longleftrightarrow\log(\dfrac{\pi_{\text{Importante}}}{\pi_{\text{No/Poca}}})-\log(\dfrac{\pi_{\text{Muy Importante}}}{\pi_{\text{No/Poca}}})(>=<)0$$
+
+Y aquí podemos sustituir para realizar las comprobaciones, por ejemplo, si $\beta_0^{(2)}>\beta_0^{(3)}$, entonces sabemos que la probabilidad de que lo comentado sea Importante es mayor que la probabilidad de que sea Muy importante, en mujeres de 18 a 23 años
+
+Como podemos ver, lo complicado es encontrar la interpretación de lo que estamos realizando, sin embargo, es algo que es sencillo, pero implica un poco de trabajo de escritura 
+
+## Interpretación en el caso de Modelos multinomiales ordinales
+En los caso de estos modelos, más en particular, en el caso de los modelos con probabilidades proporcionales, la visión que tenemos a partir de los coeficientes es más general, pues hay que recordar que lo que comparamos son sumas de probabilidades
+
+Con esto en mente, no realizaremos las pruebas de hipótesis (aunque funcionan exactamente igual), pero sí hablaremos de su interpretación, asumiendo que ya se han realizado, para esto, vamos a retomar cómo se ven los coeficientes en el caso de probabilidades proporcionales
+
+$$\log(\dfrac{\mathbb{P}(Y\leq{}i)}{\mathbb{P}(Y>i)})=\beta_0^{(i)}+\beta_1x_1+\beta_2x_2+\beta_3x_3$$
+Con esto, notemos que las proporciones se mantienen sujetas a los mismos valores de beta, así que, en nuestros casos teníamos que $\beta_1>0$, y como $\beta_1$ es el coeficiente asociado con ser hombre, entonces, en nuestro caso, implicaría que las probabilidades de las respuestas "menores" son mayores en los hombres, es decir, que para la respuesta "No/Poca", los hombres tiene mayor probabilidad, pero también, por consiguiente, las muejres tendrían probabilidades mayores para las respuestas "mayores", siguiendo la misma línea de pensamiento, la respuesta "Muy importante" tendría mayor probabilidad para las mujeres
+
+Por su parte, si notamos que $\beta_3$ es negativo, y sabiendo que $\beta_3$, entonces significa que las probabilidades de las respuestas "mayores" son mayores para las personas de más de 40 años, con respecto a las personas de 18 a 23 (nivel de referencia)
+
+Notemos que no podemos decir mucho con respecto a la edad de 23 a 40 años, porque para hace, habría que hacer la prueba para $\beta_3-\beta_2$ para determinar cómo se relacionan, si $\beta_3-\beta_2>0$, entonces $\beta_3>\beta_2$ y tendríamos que las respuestas "menores" tienen probabilidad mayor para las personas mayores de 40, con respecto a las personas de 23 a 18 años, aunque en este caso lo que se cumple es $\beta_3-\beta_2<0$, por lo que, las respuestas "mayores" tienen mayor probabilidad para personas mayores de 40, con respecto a las personas de 23 a 40
+
+\textbf{NOTA}: Esto se puede también complementar con las gráficas que hemos visto, de hecho se recomienda que se repita la lectura, viendo las gráficas de las estimaciones que hemos obtenido de los modelos
+
+# Otros modelos de regresión multinomial 
+
+Una vez que terminamos de ver las pruebas de hipótesis, que son parte importante de su tarea, pasemos con otra forma de calcular las estimaciones para nuestros parámetros, y es que los modelos de regresión logística multinomial son muy importantes, y su carencia en R base hace que muchos otros paquetes generen su propia versión de los mismos 
+
+## Glmnet
+La paquetería \textbf{glmnet} tiene la función \textbf{glmnet}, aunque aún no la conocen en profundidad, más adelante será de utilidad, dicho eso, vamos a ver cómo trabajaría.
+
+Para trabajar con ella necesitamos separar los datos en una matriz $X$ de covariables, y una variable $y$ de respuesta
+
+
+```{r pre_glmnet, echo=TRUE}
+#Generamos la matriz para trabajar
+X_pre<-model.matrix(Respuesta ~ Sexo+Edad, data=Datos)
+X<-X_pre[,c(-1)]
+
+#Generamos el vector
+y<-Datos$Respuesta
+
+#Guardamos nuestro modelo
+fit_glmnet<-glmnet(X,y,family = "multinomial", lambda = 0)
+```
+
+Ahora, vamos a guardar un modelo, creado con vglm, con la diferencia de que utilizaremos como nivel de referencia a la respuesta "Importante", veremos más adelante el motivo para esto, pero de momento veamos:
+
+```{r importante, echo=TRUE}
+# Vamos a generar un modelo donde el nivel de en medio sea el de referencia (Importante)
+coeficientes_Importante<-
+  coef(vglm(Respuesta ~ Sexo+Edad,
+                     family = multinomial(refLevel = "Importante"),
+                     data = Datos), matrix = TRUE)
+
+#Lo presentamos por esta vez
+coeficientes_Importante
+```
+
+Ahora, vamos a intentar ver cómo podemos obtener los coeficientes de glmnet, y la forma en que nos aproximaríamos a los coeficientes que acabamos de obtener
+
+```{r glmnet, echo=TRUE}
+#Primero vamos a guardar el modelo por glmnet
+fit_glmnet<-glmnet(X,y,family = "multinomial", lambda = 0)
+
+#Con esto en mente, vamos a extraer los coeficientes
+
+#Primero, para los interceptos 
+#(Pues glmnet los maneja independientes de los demás coeficientes)
+fit_glmnet$a0
+
+#Aunque podemos ver que no son iguales los interceptos, es 
+#porque hay que hacer algunos detalles:
+
+#Para la comparación No/Poca e Importante sería:
+fit_glmnet$a0[1]-fit_glmnet$a0[2]
+#El intercepto de "No/Poca" menos el intercepto de "Importante"
+
+#Para la comparación Muy importante e Importante sería:
+fit_glmnet$a0[3]-fit_glmnet$a0[2]
+#El intercepto de "Muy importante" menos el intercepto de "Importante"
+```
+Aunque los valores no son exactamente iguales, esto se debe a las diferencias de redondeo que suelen ocurrir al utilizar prcesos diferentes, ahora vamos a ver qué ocurre con los coeficientes 
+
+```{r coeficientes, echo=TRUE}
+#Para esto, el modelo guarda las betas en un objeto
+#Que se llama "betas", aquí tenemos que tener cuidado
+
+# Las betas para "No/Poco", serían:
+fit_glmnet$beta$`No/poca`
+
+# Las betas para "Importnate", serían:
+fit_glmnet$beta$Importante
+
+# Las betas para "Muy importante", serían:
+fit_glmnet$beta$`Muy importante`
+
+```
+
+Aquí podemos notar que la betas para la respuesta "Importante" no aparecen, esto ocurre porque, en este caso, ese sería nuestro nivel de referencia
+
+Dicho esto, los betas ya están de la forma correcta (ya representan el cociente de probabilidades)
+
+Pero veremos un resumen más adelante, de momento pasemos a otra forma de realizar el cálculo 
+
+## Nnet
+Otra opción posible es con la función \textbf{multinom} de la paquetería \textbf{nnet} y a continuación veremos cómo se usa
+
+```{r nnet, echo=TRUE}
+#La forma de introducir los datos es muy similar
+#sólo cambia el nombre de la función
+fit_nnet<-multinom(Respuesta~Sexo+Edad, data = Datos)
+
+#Y generamos un summary
+summary(fit_nnet)
+```
+Notemos que en este caso, el nivel que no aparece es la respuesta "No/Poca", por lo que, en este modelo, ese sería nuestro nivel de referencia, veamos pues tablas donde estén nuestros coeficientes para ver que en efecto son iguales
+
+## Comparaciones
+
+### Glmnet y vglm
+A continuación vamos a presentar dos tablas presentadas como dataframes, en primer lugar, vamos a presentar cómo serían los coeficientes entre glmnet y vglm
+
+```{r comparacion1, echo=TRUE}
+#Junatmos los valores de las betas
+coeficientes_glmnet_betas <-
+  cbind(as.matrix(fit_glmnet$beta$`No/poca`), as.matrix(fit_glmnet$beta$`Muy importante`))
+
+#Ahora juntamos los interceptos
+interceptos_glmnet<-c(fit_glmnet$a0[1]-fit_glmnet$a0[2],fit_glmnet$a0[3]-fit_glmnet$a0[2])
+
+#Juntamos los interceptos y los betas
+coeficientes_glmnet<-rbind(interceptos_glmnet, coeficientes_glmnet_betas)
+
+#Y a continuación los presentamos:
+rbind(coeficientes_Importante,coeficientes_glmnet) %>%
+  as.data.frame() %>%
+  
+  #Le aplicaremos formato de tabla
+  kbl(booktabs = TRUE, align = "c", caption = "De fondo negro los coeficientes con vglm y de fondo azul con glmnet") %>% 
+  
+  #Pintamos las filas
+  row_spec(1:4, color = "red", background = "black")  %>%
+  row_spec(5:8, color = "black", background = "BlueGreen")
+
+```
+Podemos ver que, aunque realmente no son exactamente iguales los valores, sin embargo, son muy parecidos, y como se comentó previamente, podemos decir que la diferencia proviene de la forma de estimar los coeficientes, sin embargo, no son diferencias muy grandes, por lo que trabajar con cualquiera sería indistinto
+
+### Multinom y vglm
+```{r comparasion2, echo=TRUE}
+#Guardamos los coeficientes y los transponemos
+coeficientes_multinom<-coef(fit_nnet) %>% t()
+
+#Guardamos los de vglm
+coeficientes_poca<-coef(fit_no_int, matrix = TRUE)
+
+#Y a continuación los presentamos:
+rbind(coeficientes_poca,coeficientes_multinom) %>%
+  as.data.frame() %>%
+  
+  #Le aplicaremos formato de tabla
+  kbl(booktabs = TRUE, align = "c", caption = "De fondo negro los coeficientes con vglm y de fondo morado con multinom") %>% 
+  
+  #Pintamos las filas
+  row_spec(1:4, color = "red", background = "black")  %>%
+  row_spec(5:8, color = "black", background = "Orchid")
+```
+Por otro lado, en este caso, podemos ver que las estimaciones son un poquito más precisas, sin embargo, igualmente hay diferencias (aunque más pequeñas)
+
+
+Pero todo esto, de nuevo, se debe a la forma de estimar, pues hay que recordar que en todos estos modelos, surgen ecuaciones no lineales que hay que resolver, y esto suele llevarnos a requerir métodos numéricos para resolver

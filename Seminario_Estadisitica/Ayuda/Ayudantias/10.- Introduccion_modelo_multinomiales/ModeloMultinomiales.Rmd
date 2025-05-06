@@ -1,0 +1,391 @@
+---
+title: "Modelos Logísticos multinomiales"
+author: "César Valle"
+date: "24/09/2024"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 6.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(tidyverse)  # Más manejo de datos
+library(purrr)      # Para Map
+library(VGAM)       # Para los modelos multinomiales
+```
+
+# Introducción 
+Tras todo un mes de ver modelos y más modelos para poder trabajar con diferentes tipos de datos, aún nos falta un tipo de dato particular que debemos trabajar, en este caso, nosotros ya sabemos trabajar con respuestas binarias, por ejemplo: "si" y "no", sin embargo, ¿cómo podríamos trabajar cuando tenemos múltiples respuestas, como: "A", "B", "C", "D", etc.?
+
+Y es en estos momentos donde entra en juego el tipo de modelos que vamos a ver en esta ayudantía, los modelos logísticos multinomiales, así que comencemos con ello
+
+# ¿Cómo funcionan estos modelos?
+Lo primero que debemos comentar es que la distribución multinomial no pertenece a la familia exponencial de dispersión (de donde surgen todos los modelos que se han visto), sin embargo, si suponemos que tenemos c respuestas, es posible que trabajemos con esta distribución, pues pertenece a la familia exponencial de $c-1$ parámetros, donde los parámetros son las probabilidades de ocurrencia de cada una de las respuestas ($\pi_j$ la probabilidad de recibir la respuesta $j$), notar que dado que podemos asumir que la suma de las probabilidades da 1 ($\displaystyle\sum_{i=1}^c\pi_j=1$), entonces podemos calcular una de ellas, digamos la c-ésima, como 1 menos la suma de las demás ($\pi_c=1-\displaystyle\sum_{i=1}^{c-1}\pi_j$), y justamente serán estas probabilidades las que se estiman con este modelo
+
+## ¿Cómo se realiza dicha estimación?
+
+Para realizar la estimación, se procede de manera similar a como se trabaja en un modelo binomial, vamos a comenzar recordando este modelo para posteriormente generalizarlo, nosotros sabemos que cuando tenemos dos eventos, y utilizamos un modelo logístico, tenemos lo siguiente 
+
+$$logit(\pi_1)=log(\frac{\pi_1}{1-\pi_1})=\beta_0+\beta_1x_1+\cdots+\beta_px_p$$
+
+Esta forma de escribir no parece decirnos mucho, sin embargo, debemos recordar que $1-\pi_1=\pi_0$ con esto tenemos lo siguiente:
+
+$$\beta_0+\beta_1x_1+\cdots+\beta_px_p=log(\frac{\pi_1}{1-\pi_1})=log(\frac{\pi_1}{\pi_0})\Longrightarrow$$
+$$\Longrightarrow\frac{\pi_1}{\pi_0}=\exp(\beta_0+\beta_1x_1+\cdots+\beta_px_p)$$
+Y esto es lo que verdaderamente nos es de interés para la explicación a continuación, como podemos ver, de cierta forma lo que realmente estimamos es qué tan diferentes son las probabilidades dependiendo del valor de las covariables (pues recordemos que las betas son fijas), y es a partir de esta comparación que se pueden realizar las estimaciones
+
+Recuperando esta idea de comparación es que procederemos a explicar qué nos indican las combinaciones lineales en esta ocasión 
+
+Pues si suponemos ahora que tenemos $c$ respuestas, entonces, utilizando a la respuesta 1 como referencia tendríamos lo siguiente 
+
+Para la respuesta 2:
+$logit(\pi_2)=log(\frac{\pi_2}{\pi_1})=\beta_0^{(2)}+\beta_1^{(2)}x_1+\cdots+\beta_p^{(2)}x_p$
+
+Para la respuesta 3:
+$logit(\pi_3)=log(\frac{\pi_3}{\pi_1})=\beta_0^{(3)}+\beta_1^{(3)}x_1+\cdots+\beta_p^{(3)}x_p$
+
+.
+
+.
+
+.
+
+Para la respuesta c:
+$logit(\pi_c)=log(\frac{\pi_c}{\pi_1})=\beta_0^{(c)}+\beta_1^{(c)}x_1+\cdots+\beta_p^{(c)}x_p$
+
+Es decir, como cada una de las respuestas puede compararse con la primera respuesta, en términos de su probabilidad, entonces nosotros tenemos tantas combinaciones lineales, como comparaciones posibles, derivado de ello, es que agregamos un superíndice a los coeficientes, para identificar de qué comparación forma parte, de aquí en adelante diremos "componente lineal" en lugar de "comparación", a final de cuentas, lo que estimamos es justamente ese componente lineal :P
+
+Visto de otra forma, tenemos un total de $(p+1)\times(c-1)$ betas, y la forma en que las utilizamos sería la siguiente:
+
+Para $i$ con $i\in\{2,3,\cdots,c\}$
+
+$$\pi_i = \frac{exp(\beta_0^{(i)} + \beta_1^{(i)} x_1 + ... + \beta_p^{(i)} x_p)}
+               {1 + \sum_{j=2}^{c} exp(\beta_0^{(j)} + \beta_1^{(j)} x_1 + ... + \beta_p^{(j)} x_p)}$$
+
+Y para $i=1$ podemos calcularla como comentamos anteriormente $\pi_1=1-\displaystyle\sum_{i=2}^c\pi_i$
+
+Aunque también tiene su propia fórmula que es
+
+$$\pi_1 = \frac{1}
+               {1 + \sum_{j=2}^{c} exp(\beta_0^{(j)} + \beta_1^{(j)} x_1 + ... + \beta_p^{(j)} x_p)}$$
+               
+               
+               
+Con esto podemos proceder con un ejemplo práctico
+
+# Ejemplo práctico
+En un estudio sobre la seguridad vehicular, se realizaron entrevistas a 300 individuos, separados en 6 grupos de 50 individuos (definidos por un sexo: Hombre o Mujer, y un tamaño de vehículo: pequeño, mediano y grande), sin embargo, se cambiaron los grupos para realizar el estudio de la ayudantía, y serán dos sexos y tres grupos de edad 18-23, 24-40 y >40 
+
+Las pregunta que se realizó a los individuos es sobre la importancia que tiene el aire acondicionado y la dirección asistida en la elección de su vehículo, por lo que las respuestas recibidas fueron "Muy importante", "Importante" y "Poco/No Importante"
+
+Con esto entendemos que realmente necesitamos nuestro modelo multinomial, y podemos proceder a conocer los datos 
+
+## Conociendo y procesando los datos
+```{r cargar_datos}
+#Cargamos los datos 
+DatosAg <- read.csv("datos.csv")
+head(DatosAg)
+```
+Como observación, podemos ver que el formato que tiene  los datos es formato long (podríamos pasra la fila de respuestas a ser columnas)
+
+Lo que haremos será pasar de la forma que tenemos, a tener datos desagregados (de uno en uno, como sería una entrevista), lo haremos con el código a continuación
+
+```{r desagregar_preprocesamiento, echo=TRUE}
+#A los datos agregados
+Datos <- DatosAg %>%
+  
+#Los agrupamos por sexo, edad y respuesta 
+group_by(Sexo, Edad, Respuesta) %>%
+
+#Y escribimos tantos unos como respuestas
+do(data.frame(unos = rep(1, .$Frecuencia))) %>%
+
+#Regresamos a un dataframe
+as.data.frame() %>%
+
+#Transformamos las variables a tipo factor
+mutate("Sexo" = factor(Sexo, levels = c("Mujeres", "Hombres")), "Edad"=factor(Edad, levels = c("18-23","24-40","> 40")), "Respuesta" = factor(Respuesta, levels = c("No/poca", "Importante", "Muy importante")))
+
+#Presentamos el cambio
+str(Datos)
+```
+
+Y con esto ya tenemos los datos de manera desagregada, con los grupos como tipo factor, por lo que podemos proceder con el ajuste del modelo
+
+## Ajustando el modelo
+Lamentablemente, en R base no tenemos una forma de poder ajustar los modelos que hemos estado comentando, pero por fortuna, con el uso de la paquetería VGAM y su función "vglm" (v de "vector") podremos ajustar nuestros modelos como vemos a continuación:
+
+```{r Ajustar_modelos, echo=TRUE}
+#Primero ajustamos un modelo con todas las interacciones posibles
+#Entre el Sexo y la Edad
+
+fit_comp <- vglm(Respuesta ~ Sexo*Edad, #Fórmula
+                  family = multinomial(refLevel = "No/poca"), #Familia
+                  data = Datos) #Datos
+#Funciona de forma equivalente a los glm que hemos trabajado
+
+#Posteriormente un modelo que no contenga ninguna interacción
+fit_no_int <- vglm(Respuesta ~ Sexo+Edad,
+                     family = multinomial(refLevel = "No/poca"),
+                     data = Datos)
+
+#Finalmente un modelo que contenga únicamente intercepto
+fit_null <- vglm(Respuesta ~ 1,
+                 family = multinomial(refLevel = "No/poca"),
+                 data = Datos)
+```
+
+Aunque no sea muy claro el motivo para ajustar tantos modelos, lo explicaremos a más adelante, de momento vamos a observar cómo son los coeficientes que nos proporcionan estos modelos, tomaremos el modelo con todas las intersecciones
+
+## Visualización de los coeficientes
+
+Probemos primero con la función summary que tanto conocemos
+
+```{r coeficientes_summary, echo=TRUE}
+#Extraemos un summary
+summary(fit_comp)
+```
+
+Pues en realidad no es muy práctico lo que estamos observando, pues nos proporciona una lista de todos los coeficientes, y además de la información que ya teníamos por las interacciones y los valores de las variables tipo factor, se agregan los números que nos indican a qué componente lineal pertenece cada coeficiente, lo que nos dificulta mucho más interpretar, en su lugar, veamos una función diferente, la función "coef()", que nos ayudará a ver los coeficientes de mejor manera
+
+```{r coeficientes_coef, echo=TRUE}
+# Veamos que, si presentamos los coeficientes, es dificil de leer
+coef(fit_comp)
+
+# Por ello, lo presentamos como matriz
+coef(fit_comp, matrix = TRUE) 
+```
+Y ahora, podemos ver que es más entendible lo que tenemos, aunque la notación cambia un poquito, nosotros teníamos antes $\pi_i=\mathbb{P}[Y= \text{respuesta i}]$, pues en este caso, cambia a ser $mu[,i]$, sólo siendo un cambio de notación
+
+Y para nosotros saber qué $i$ representa a cada respuesta, debemos recordar el orden que le pusimos a la variable tipo factor, donde especificamos que la primera respuesta (1) era "No/poca", la segunda (2) era "Importante" y la tercera (3) era "Muy Importante", y ese orden es el que permamece en las $i$ que tenemos en la matriz
+
+Además, podemos ver que la respuesta de referencia es la primera (pues es la que divide a todas las demás)
+
+Y finalmente, con esta matriz es más fácil interpretar el valor de cada coeficiente para cada componente lineal, además de facilitar la comparación entre componentes 
+
+Con estos valores podríamos calcular las probabilidades, con las fórmulas que calculamos previamente, pero además, nos va a permitir explicar el motivo de los demás modelos, porque tenemos algunas cosas más que debemos hacer, por ejemplo, ¿Cómo realizaríamos la prueba F asociada a la tabla ANOVA? (Pues de hecho en el summary realizado no aparece dicha prueba)
+
+## Pruebas de hipótesis
+
+Nosotros solemos utilizar la función glht para realizar nuestras pruebas de hipótesis, sin embargo necesitamos ewcribir una combinación lineal de los coeficientes, y en este caso, la cantidad de coeficientes es excesiva, por lo que, utilizaremos una herramienta diferente: la función "anova"
+
+La función anova nos permite realizar análisis de varianza entre dos modelos ajustados, en particular, cuando trabajamos con modelos anidados (donde uno tiene todos los coeficientes que tiene el otro y un algunos más) nos poermite determinar, mediante una prueba de hipótesis si debemos trabajar con el modelo completo, o podemos trabajar con el modelo reducido, dicho de otra forma
+
+$$H_0:\text{Podemos utilizar el modelo reducido}$$
+
+$$\text{vs.}$$
+
+$$H_a:\text{Debemos utilizar el modelo completo}$$
+Y ese es el motivo por el que ajustamos múltiples modelos, para poder nosotros realizar pruebas como la equivalente a la prueba ANOVA, como a continuación 
+
+### Prueba equivalente a la prueba F asociada a la tabla ANOVA
+
+```{r PruebaF, echo=TRUE}
+#Escribimos los dos modelos y la salida es la prueba
+anova(fit_null, fit_comp, type = "I")
+```
+
+La prueba nos dice que con una significancia del 0.05, podemos trabajar con el modelo completo
+
+### Prueba para reducir el modelo
+
+Ahora verifiquemos si podemos trabajar con un modelo reducido 
+
+```{r Anova_red, echo=TRUE}
+#NOTA: El orden de los modelos no importa
+anova(fit_no_int, fit_comp, type = "I")
+```
+
+Y podemos ver que no hay evidencia en contra de utilizar el modelo sin interacciones, por lo que podríamos utilizar dicho modelo a continuación 
+
+### Prueba equivalente a la prueba F asociada a la tabla ANOVA para el modelo reducido 
+
+Verificamos a continuación la prueba F asociada a la tabla ANOVA para el modelo reducido 
+
+```{r PruebaF_no_int, echo=TRUE}
+#Escribimos los dos modelos y la salida es la prueba
+anova(fit_no_int, fit_null, type = "I")
+```
+
+Por lo que podemos trabajar con el modelo reducido
+
+## Expresiones de nuestro modelo
+
+Hasta el momento no habíamos mencionado la forma que tiene el modelo con el que trabajamos, esto fue por simplicidad, sin embargo, escribiendo 
+$x_1 = \mathbb{I}_{Sexo=Hombres}$, $x_2 = \mathbb{I}_{Edad\in[24,40]}$ y $x_3 = \mathbb{I}_{Edad>40}$, podemos ver los modelos como:
+
+El modelo completo: 
+$\log\left(\dfrac{\pi_i}{\pi_1}\right)=\beta_0^{(i)}+\beta_1^{(i)}x_1+\beta_2^{(i)}x_2+\beta_3^{(i)}x_3+\beta_4^{(i)}x_1x_2+\beta_5^{(i)}x_1x_3$
+
+Mientras que sin interacciones: $\log\left(\dfrac{\pi_i}{\pi_1}\right)=\beta_0^{(i)}+\beta_1^{(i)}x_1+\beta_2^{(i)}x_2+\beta_3^{(i)}x_3$
+
+Así que podemos ver que reducir el modelo nos será de utilidad
+
+Visto todo lo anterior debemos recordar que el valor que nosotros estimamos normalmente cambia en función de los valores que toman las covariables, por lo que, los componentes también tienen diferentes formas, pues en este caso (sin interacciones), tendremos lo siguiente
+
+\begin{tabular}{|c|c|c|}
+ & Modelo sin interacciones, $j\in\{2,3\}$ & \\
+ Edad & Mujeres $(x_1 = 0)$ & Hombres $(x_1 = 1)$\\ \hline
+ 18-24 años & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_1^{(j)}$ \\ \hline
+ 24-40 años $(x_2 = 1)$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_2^{(j)}$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_1^{(j)}+\beta_2^{(j)}$\\ \hline
+ $>$40 años $(x_3 = 1)$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_3^{(j)}$ & $\log(\frac{\pi_j}{\pi_1})=\beta_0^{(j)}+\beta_1^{(j)}+\beta_3^{(j)}$
+\end{tabular}
+
+Con esto, podríamos calular los valores de las probabilidades, utilizando cada una de las posibles combinaciones, para cada una de las 3 respuestas, en total, tenemos 3*6 = 18 probabilidades, pues tenemos 3 respuestas y 6 combinaciones de edad y sexo, por lo que puede ser complicado, aún así, hagamos un ejemplo para ver que funciona
+
+```{r calculo_manita, echo=TRUE}
+#Si quisiéramos hacer el cálculo de todas las probabilidades
+#debemos guardar todos los coeficientes 
+b02 <- coefficients(fit_no_int)[1]
+b03 <- coefficients(fit_no_int)[2]
+b12 <- coefficients(fit_no_int)[3]
+b13 <- coefficients(fit_no_int)[4]
+b22 <- coefficients(fit_no_int)[5]
+b23 <- coefficients(fit_no_int)[6]
+b32 <- coefficients(fit_no_int)[7]
+b33 <- coefficients(fit_no_int)[8]
+
+#Después elegimos una categoría
+#Por ejemplo, hombres de más de 40 años
+
+#Guardamos las dos combinaciones lineales (El valor de las x es 1 o 0)
+combinaciones_h40<-c(b02+b12+b32, b03+b13+b33)
+
+#Con ello podemos calcular las probabilidades:
+
+# Prob hombre de > 40 años elija "Importante"
+(pi2_h40 <- exp(combinaciones_h40[1])/(1+sum(exp(combinaciones_h40))))
+
+# Prob hombre de > 40 años elija "Muy importante"
+(pi3_h40 <- exp(combinaciones_h40[2])/(1+sum(exp(combinaciones_h40))))
+
+# Prob hombre de > 40 años elija "No/poco importante"
+(pi1_h40 <- 1-pi2_h40-pi3_h40) 
+
+#Y podemos ver que si las sumamos nos da 1
+pi1_h40+pi2_h40+pi3_h40
+
+#Así como calculamos esta, podríamos calcular todas las demás, sólo hay que
+#tener cuidado con las betas que debemos de utilizar
+```
+
+Aunque esto nos confirma que nuestra teoría es correcta, es muy tardada, además, hay mucha posibilidad de equivocarnos si somos descuidados, por lo que podríamos utilizar en su lugar las herramientas que R nos proporciona, para esto debemos utilizar todas las combinaciones que tenemos, y se hace de la siguiente manera:
+
+```{r probabilidades, echo=TRUE}
+#Obtenemos las combinaciones, aprovechando la tabla aumentada
+combinaciones <- unique(DatosAg[,1:2]) %>%
+  arrange(Sexo, Edad)
+
+#También podríamos obtenerla con los datos desagregados como:
+#combinaciones <- unique(datos[,1:2]) %>% arrange(Sexo, Edad)
+
+#Con esto aplicamos la función predict, con tipo "response" y tenemos:
+probas <- predict(fit_no_int, combinaciones, type = "response")
+
+#Finalmente, unimos las combinaciones con sus probabilidafes
+datos_modelo <- data.frame(cbind(combinaciones, probas))
+
+#Le cambiamos el nombre, para más adelante
+colnames(datos_modelo)<-c("Sexo", "Edad", "No/poca", "Importante", "Muy importante")
+```
+
+Si hacemos la comparación de las probabilidades que calculamos a mano, con las obtenidas con predict, podemos ver que son iguales
+
+```{r comparar_probs}
+#A mano
+c(pi1_h40, pi2_h40, pi3_h40)
+
+#Con predict
+datos_modelo[3,]
+```
+Finalmente, lo importante es que esto nos da es la capacidad de comparar las probabilidades por medio de gráficas, como la que veremos a continuación
+
+```{r grafica, echo=TRUE}
+#En este caso, necesitamos los datos en tipo long
+data_long <- datos_modelo %>% 
+  pivot_longer(cols = c(`No/poca`, Importante, `Muy importante`), 
+               names_to = "Respuesta", 
+               values_to = "Probabilidad") %>%
+#Aplicamos orden al tipo factor
+mutate("Respuesta"=factor(Respuesta, levels = c("No/poca", "Importante", "Muy importante")),
+       "Edad"=factor(Edad, levels = c("18-23", "24-40", "> 40")),
+       "Sexo"=factor(Sexo, levels = c("Mujeres", "Hombres")))
+
+#Con esto podemos crear la gráfica
+ggplot(data_long, aes(x = Edad, y = Probabilidad, fill = Respuesta)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8),
+           width = 0.7) +
+  geom_text(aes(label = round(Probabilidad, 2)), 
+            position = position_dodge(width = 0.8), 
+            vjust = -0.7, size = 5) +  # Añadir etiquetas con probabilidades
+  facet_grid(. ~ Sexo) + #Este nos permite separar por sexo
+  labs(
+    title = "Probabilidades por Sexo y Edad",
+    x = "Edad",
+    y = "Probabilidad"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    legend.position = "top"
+  )
+
+```
+Y claro, debemos recordar que lo más importante es interpretar, por ejemplo, podemos ver que para los jovenes, tanto hombres como mujeres, la dirección asistida y el aire acondicionado no son tan importantes, seguramente prefieran un coche potente, o un coche que puedan lucir, por encima de las ayudas
+
+Por otro lado, podemos ver que para los mayores sí es muy importante, podemos suponer que esto se debe a que con la edad, la temperatura es más dificil de regular, además, podemos incluir la menopausia y la andropausia como factor, pues provocan calores y causan que se necesite de calefacción, la dirección asistida suena como algo que sería mejor en un vehículo para familia, pues ayuda cuando el vehículo hace esfuerzo y cuando se va lento
+
+Con esto debemos recordar que lo importante siempre es la interpretación que podemos leer de estos aspectos
+
+## Comparando con los datos originales
+Igualmente, podemos graficar nuestras probabilidades, a partir de los datos desagregados como:
+
+```{r grafica_datos, echo=TRUE, fig.dim=c(7.0,5.5)}
+aux <- Datos %>%
+    group_by(Sexo, Edad, Respuesta) %>%
+    summarise(n = n()) %>%
+    mutate(freq = n / sum(n))
+
+# Crear la gráfica de barras
+ggplot(aux, aes(x = factor(Edad), y = freq, fill = Respuesta)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = round(freq, 2)), 
+            position = position_dodge(width = 0.8), 
+            vjust = -0.7, size = 5) +  # Añadir etiquetas con probabilidades
+  facet_grid(. ~ Sexo) +
+  labs(
+    title = "Frecuencias relativas por Sexo y Edad",
+    x = "Edad",
+    y = "Frecuencia"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    legend.position = "top"
+  )
+
+```
+

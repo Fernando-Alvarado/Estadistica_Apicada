@@ -1,0 +1,215 @@
+---
+title: "Regresión ponderada vs. GLM"
+author: "Seminario de Estadística 2025-2"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+date: "07/03/2025"
+geometry: margin=1.0cm
+header-includes:
+   - \usepackage[spanish]{babel}
+   - \usepackage[utf8]{inputenc}
+   - \decimalpoint
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+#Elegimos nuestra carpeta
+setwd("C:/Users/bortega/OneDrive - MLG.COM.MX/Escritorio/Seminario 2025-2/Ayudantias")
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(6.0, 5.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+```
+
+# Usando el modelo de RLM
+A lo largo de nuestra clase, hemos conocido ya muchos modelos que se ven muy bonitos, y que se podrían utilizar para modelar los problemas, sin embargo, eso no significa que sean la cura de todos los males.
+
+Aún no debemos olvidarnos de nuestros orígenes, la regresión lineal múltiple, primero vamos a ver qué podría cambiar con una regresión lineal múltiple.
+
+Para esto, recordemos que ya habíamos buscado una solución para el problema en el que se enfrentan Ventas de productos contra lo que gastan en su publicidad en TV, el cual ya fue resuelto mediante un modelo lineal generalizado, dicho eso, ¿Qué pasa con una regresión lineal simple?
+
+```{r LeerDatos, echo=FALSE}
+#Cargamos nuestro datos
+df_ventas <- read.csv("Advertising.csv")
+```
+
+Pues nosotros ya sabemos que hay que verificar supuestos para poder realizar nuestra inferencia, empecemos por ello
+
+```{r Ajuste, echo=FALSE}
+#Ajustamos el modelo
+fit_ventas <- lm(sales~TV, data = df_ventas)
+```
+
+## Linealidad
+
+```{r Lin, echo=FALSE}
+#Con el paquete Car
+residualPlots(fit_ventas)
+
+##No parece haber evidencia en contra de la linealidad 
+```
+Notemos que, si bien la prueba se rechaza para una significancia de .05, no significa que nuestra hipótesis nula sea cierta, es decir, en este caso, nada nos garantiza que se cumpla la linealidad, pues 
+
+```{r Scatter, echo=FALSE, fig.cap="Las ventas contra el gasto en publicidad en TV"}
+#Graficamos nuestra variable
+ggplot(data = df_ventas, aes(x=TV, y=sales))+
+  geom_point(color= "cadetblue4")
+```
+
+Podemos ver, gracias a la Figura \@ref(fig:Scatter) que tenemos, que la linealidad no se cumple.
+
+Además, también las gráficas con los residuales parecen rechazarlo
+
+De momento, verifiquemos el resto de supuestos, para ver si hay algo más que debamos solucionar
+
+
+## Homocedasticidad
+```{r Homo, echo=FALSE}
+#Realizamos pruebas de hipótesis
+lmtest::bptest(fit_ventas)
+car::ncvTest(fit_ventas)
+
+#Realizamos gráficas  
+plot(fit_ventas, 3)
+```
+
+En este otro caso, vemos que tanto las pruebas de hipótesis, como la  gráfica, nos indican que la homocedasticidad no se cumple en nuestro modelo, por lo que también debemos buscar una alternativa
+
+## Normalidad
+Finalmente, verifiquemos si hay algo más que debamos hacer, con la normalidad
+
+```{r Normp, echo=FALSE}
+#Pruebas de normalidad
+
+#Generamos nuestro modelo aumentado
+Datosfit=augment(fit_ventas)
+
+#Realizamos las pruebas de normalidad
+shapiro.test(Datosfit$.std.resid)
+nortest::lillie.test(Datosfit$.std.resid)
+
+#Presentamos la q-q plot
+plot(fit_ventas, 2)
+```
+Afortunadamente, podemos ver que no hay evidencia que indique que la normalidad no se está cumpliendo en nuestros datos, pues nuestras pruebas de hipótesis y la gráfica no nos dan información en contra de la normalidad
+
+## Solucionando problemas
+
+Ya que tenemos que debemos solucionar linealidad y homocedasticidad, primero vamos a resolver la linealidad con una transformación Box-Tidwell
+
+```{r BT, echo=FALSE}
+boxTidwell(sales~TV, data=df_ventas)
+```
+
+Podemos ver que se nos dice que probemos con un lambda de 0.6.
+
+\newpage
+
+# RLM 2: La venganza
+
+Una vez que aplicamos nuestra transformación sobre la variable de gastos en publicidad en TV, podemos volver a ajustar nuestro modelo para observar si los supuestos sí se cumplen en esta ocasión
+
+```{r Ajuste2, echo=FALSE}
+fit05 <- lm(sales~I(TV^.6), data = df_ventas)
+```
+
+## Linealidad
+```{r Lin2, echo=FALSE}
+#Con el paquete Car
+residualPlots(fit05)
+```
+Podemos ver que con la linealidad ya no parece existir algún problema, en las pruebas de hipótesis no se rechaza nuestra hipótesis nula, y nuestras lineas se ven algo más centradas que previamente
+
+Veamos también el scatterplot, a continuación, en el cual podemos ver que nuestros datos tienen sufrieron un cambio radical, y ahora es bastante clara la linealidad entre las variables
+```{r Scatter2, echo=FALSE, fig.cap="Las ventas contra la raíz cuadrada del gasto en publicidad en TV"}
+# Graficamos
+ggplot(data = df_ventas, aes(x=TV^0.6, y=sales))+
+  geom_point(color= "cadetblue4")
+```
+
+## Homocedasticidad
+Una vez que ya se cumplió la linealidad, pasamos a comprobar qué sucede con la homocedasticidad, dado que realizamos una transformación Box-Tidwell es poco probable que esta se haya solucionado, sin embargo, no perdemos nada con verificar
+
+```{r Homo2, echo=FALSE}
+#Realizamos pruebas de hipótesis
+lmtest::bptest(fit05)
+car::ncvTest(fit05)
+
+#Realizamos gráficas  
+plot(fit05, 3)
+```
+Podemos ver que con la homocedasticidad no pudimos hacer nada, entonces aún debemos buscar soluciones para la misma
+
+## Normalidad 
+Finalmente, ya que tenemos que la linealidad se cumple y la homocedasticidad no, podemos pasar a observar la normalidad, nuevamente, por el tipo de transformación realizada, es poco probable que haya un cambio, pero debemos asegurarnos de que en efecto se cumple lo que queremos
+
+```{r Normp2, echo=FALSE}
+#Pruebas de normalidad
+
+#Generamos nuestro modelo aumentado
+Datosfit2=augment(fit05)
+
+#Realizamos las pruebas de normalidad
+shapiro.test(Datosfit2$.std.resid)
+nortest::lillie.test(Datosfit2$.std.resid)
+
+#Presentamos la q-q plot
+plot(fit05, 2)
+```
+La normalidad tampoco parece tener problemas
+
+
+Hecho esto, nosotros podemos pensar de inmediato en realizar una transformación Box-Cox sobre la variable de ventas, sin embargo, sabemos que esto también puede modificar a nuestro supuesto de normalidad, entonces, ¿qué podemos hacer?
+
+Pues ahí entra la Regresión ponderada, pero ¿Qué es la regresión Ponderada?
+
+# Regresión Ponderada: El origen
+
+La regresión ponderada, realiza un cambió en los supuestos de varianza constante, pues en esta ocasión, nosotros asumismos que las variables $y_i$ tienen por varianza $V(y_i)=\dfrac{\sigma^2}{w_i}$, donde $w_i$ es una constante conocida
+
+Y es el único cambio que se realiza sobre nuestros supuestos, esto nos permite ajustar un modelo de regresión, aún cuando la varianza no es constante
+
+\textbf{Observación}: Notemos que entonces, la regresión lineal múltiple es un caso particular de la regresión ponderada, donde asumimos que $w_i=1$ $\forall i$
+
+Una vez que ya entendimos cómo funciona la regresión ponderada, nos falta preguntarnos. ¿Cómo sabemos que podemos usar la regresión ponderada?
+
+En realidad no necesitamos que ocurra algo en particular, ya comentamos que el caso "básico" de su uso es cuando la homocedasticidad no se cumple, sin embargo, esto no significa que sólo deba usarse en esos casos
+
+En realidad podemos probar usarlo en cualquier problema, pues no es ajena a la regresión lineal múltiple, por el contrario, es una extensión de la misma, por lo que, lo único que nos impediría usarla, serían los supuestos. Sin embargo, que la homocedasticidad no se cumpla, sería el motivo idóneo, o el argumento con mayor peso, en este caso, es así, veamos de nuevo nuestros datos 
+
+```{r Scatter3, echo=FALSE, fig.cap="Las ventas contra la raíz cuadrada del gasto en publicidad en TV"}
+# Graficamos
+ggplot(data = df_ventas, aes(x=TV^0.6, y=sales))+
+  geom_point(color= "cadetblue4")
+```
+
+Podemos ver que, sí tenemos que la varianza no es constante, más aún, podemos ver que la varianza aumenta conforme aumenta el gasto en publicidad, por lo que definitivamente, regresión ponderada parece camino que deber seguir
+
+Continuará...
+

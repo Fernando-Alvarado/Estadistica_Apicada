@@ -1,0 +1,305 @@
+---
+title: "Aprendizaje no Supervisado"
+subtitle: "Reducción de Dimensionalidad"
+author: "Seminario de Estadística 2025-1"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+header-includes:
+   - \usepackage[spanish]{babel}
+   - \usepackage[utf8]{inputenc}
+   - \decimalpoint
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+#Elegimos nuestra carpeta
+#setwd("~/GitHub/ayudantias/20231112-A13-SelVar")
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 3.5),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(DHARMa)     # Para la verificación de supuestos
+library(ISLR)       # Para la base de datos
+library(leaps)      # Para el cálculo de los mejores conjuntos de variables por diversos métodos
+library(bestglm)    # Para obtener el mejor subconjunto
+library(glmnet)     # Para utilizar la penalización Lasso
+library(factoextra) # Para obtener los componentes principales
+library(psych)      # Para obtener el análisis factorial
+library(bayesQR)    # Para la base de datos (PCA)
+```
+
+# Introducción
+Hasta el momento, nosotros hemos visto una gran cantidad de métodos para trabajar con variables, y encontrar conjuntos de datos para explicar una variable $y$, sin embargo, qué podemos aprender cuando no tenemos una variable $y$ (de respuesta)
+
+Pues para eso podemos utilizar los componentes principales y el análisi factorial, para intentar encontrar cualquier tipo de información que podamos utilizar 
+
+Y es lo que haremos en esta ayudantía, para apoyarlos con su tarea :P
+
+
+# Reducción de dimensionalidad en un conjunto de individuos con cáncer de próstata
+
+Para el proceso que haremos a continuación, vamos a filtrar por únicamente las siguientes variables clínicas que son de interes, y las veremos a continuación
+
+```{r cargar_datos, include=FALSE}
+data(Prostate)
+datos = Prostate
+summary(datos)
+datos <- datos[,c("lcavol", "lweight", "lbph", "lcp", "lpsa")]
+```
+
+
+```{r graficar, echo=FALSE}
+ggpairs(datos)
+```
+A partir de la figura anterior, podemos ver que tenemos 5 variables, de las cuales, podemos ver que sí existe bastante relación entre múltiples variables, como por ejemplo lcp con lpsa, lpsa con lcavol y lcp con lcavol.
+
+
+Estas correlaciones, las podemos ver tanto en las gráficas, como calculadas en la gráfica
+
+Por otro lado, podemos ver que existen varias diferencias en cuanto a la varianza que tenemos presentes, complementando la información de las gráficas con la información que tenemos del chunk "varianzas", tenemos que la varianza más grande viene de la variable lbph y lcp, y la menor varianza provenientes de la variable lweight, por lo que podríamos tener un problema al realizar los componentes principales, dejando de lado la variable lweight, y acaparando toda la información las variables lbph y lcp, podríamos necesitar realizar alguna transfromación.
+
+```{r varianzas, eval=FALSE, include=FALSE}
+var(datos)
+```
+
+Posteriormente realizamos múltiples análsis de componentes principales y análisis factorial exploratorio
+
+## Análisis de Componentes Principales (Inicial)
+Inicialmente realizamos dos análisis de componentes principales, uno en la escala original, y otro con los datos estandarizados, de los cuales, el mejor, por la interpretación, fue el modelo con los datos estandarizados, que presentamos a continuación
+
+```{r PCA_Org, include=FALSE}
+PC_org <-principal(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "none")
+
+PC_Esc <-principal(datos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "none")
+print(PC_org)
+fa.diagram(PC_org, cut = .5, digits = 2)
+```
+
+```{r PCA_Esc, fig.dim=c(6,3)}
+#print(PC_Esc$loadings, cut = .5)
+fa.diagram(PC_Esc, cut = .5, digits = 2)
+```
+A partir de la gráfica anterior, podemos observar que las variables que se encuentran relacionadas con el primer componente principal, son las variables lpsa, lcavol y lcp
+
+De esta información, podemos darnos cuenta de que este componente principal está relacionado con el tamaño y la influencia del cáncer, esto debido a que la variable lcavol es la que nos indica el volumen que tiene el cáncer, y a su vez, lcp está relacionado con qué tanto se ha propagado el cáncer a lo largo de la próstata, y finalmente, la variable lpsa está relacionada con el nivel de una proteína producida en la próstata, este componente principal, tendría un gran impacto al momento de verificar si un individuo tiene un cáncer en un estado leve, o si es algo grave (una gran propagación o influencia)
+
+Por otro lado, el segundo componente principal está relacionado con el tamaño de la próstata, pues lweight, está relacionada con el tamaño de la próstata, pero además, lbph está relacionada con el ensanchamiento de la próstata, sin embargo, se mide el efecto no cancerígeno, esto significa que este segundo componente principal, podría ayudarnos a ajustar el tamaño del cáncer, a través del tamaño de la próstata y del ensanchamiento que no es del cáncer 
+
+## Análisis Factorial Exploratorio (Inicial)
+De la misma manera, se realizaron con los mismos datos, el análisis factorial exploratorio, en búsqueda de algún tipo de información, y de igual forma, por interpretabilidad, llegamos  la misma conclusión sobre los datos estandarizados, que mostramos a continuación:
+```{r AFE_Org, include=FALSE}
+FA_org <-fa(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "none")
+
+FA_Esc <-fa(datos, cor="cor",
+                   covar = FALSE, nfactor = 5, rotate = "none")
+print(FA_org)
+fa.diagram(FA_org, cut = .5, digits = 2)
+```
+
+```{r AFE_Esc, fig.dim=c(6,3)}
+#print(FA_Esc)
+fa.diagram(FA_Esc, cut = .5, digits = 2)
+```
+
+Donde, de forma equivalente a la información que obtuvimos de los componentes principales, podemos rescatar dos factores relevantes, que son equivalentes a los obtenidos por los componentes principales
+
+Sin embargo, aún debemos preguntar si existe alguna otra transformación que nos pueda proporcionar alguna mejor en cuanto a interpretación
+
+```{r PCA_varimax, include=FALSE}
+PC_org_varimax <-principal(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+PC_Esc_varimax <-principal(datos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+print(PC_org_varimax, cut = .5)
+print(PC_Esc_varimax, cut = .5)
+```
+```{r PCA_oblimin, include=FALSE}
+PC_org_oblimin <-principal(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+PC_Esc_oblimin <-principal(datos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+print(PC_org_oblimin, cut = .5)
+print(PC_Esc_oblimin, cut = .5)
+```
+
+```{r PCA_cluster, include=FALSE}
+PC_org_cluster <-principal(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "cluster")
+
+PC_Esc_cluster <-principal(datos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "cluster")
+
+print(PC_org_cluster, cut = .5)
+print(PC_Esc_cluster, cut = .5)
+```
+
+```{r AFE_varimax, include=FALSE}
+FA_org_varimax <-fa(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+FA_Esc_varimax <-fa(datos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+print(FA_org_varimax, cut = .5)
+print(FA_Esc_varimax, cut = .5)
+```
+
+```{r AFE_oblimin, include=FALSE}
+FA_org_oblimin <-fa(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+FA_Esc_oblimin <-fa(datos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+print(FA_org_oblimin, cut = .5)
+print(FA_Esc_oblimin, cut = .5)
+```
+
+```{r AFE_simplimax, include=FALSE}
+FA_org_simplimax <-fa(datos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "simplimax")
+
+FA_Esc_simplimax <-fa(datos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "simplimax")
+
+print(FA_org_simplimax, cut = .5)
+print(FA_Esc_simplimax, cut = .5)
+```
+
+```{r Datos_log, include=FALSE}
+Ldatos<-log10(datos+3)
+```
+
+```{r LPCA_Org, include=FALSE}
+LPC_org <-principal(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "none")
+
+LPC_Esc <-principal(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "none")
+print(LPC_org, cut = .5)
+print(LPC_Esc, cut = .5)
+```
+
+```{r LPCA_varimax, include=FALSE}
+LPC_org_varimax <-principal(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+LPC_Esc_varimax <-principal(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+print(LPC_org_varimax, cut = .5)
+print(LPC_Esc_varimax, cut = .5)
+```
+```{r LPCA_oblimin, include=FALSE}
+LPC_org_oblimin <-principal(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+LPC_Esc_oblimin <-principal(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+print(LPC_org_oblimin, cut = .5)
+print(LPC_Esc_oblimin, cut = .5)
+```
+
+```{r LPCA_cluster, include=FALSE}
+LPC_org_cluster <-principal(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "cluster")
+
+LPC_Esc_cluster <-principal(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "cluster")
+
+print(LPC_org_cluster, cut = .5)
+print(LPC_Esc_cluster, cut = .5)
+```
+
+```{r LAFE_Org, include=FALSE}
+LFA_org <-fa(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "none")
+
+LFA_Esc <-fa(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "none")
+print(LFA_org, cut = .5)
+print(LFA_Esc, cut = .5)
+```
+
+```{r LAFE_varimax, include=FALSE}
+LFA_org_varimax <-fa(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+LFA_Esc_varimax <-fa(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "varimax")
+
+print(LFA_org_varimax, cut = .5)
+print(LFA_Esc_varimax, cut = .5)
+```
+
+```{r LAFE_oblimin, include=FALSE}
+LFA_org_oblimin <-fa(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+LFA_Esc_oblimin <-fa(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "oblimin")
+
+print(LFA_org_oblimin, cut = .5)
+print(LFA_Esc_oblimin, cut = .5)
+```
+
+```{r LAFE_simplimax, include=FALSE}
+LFA_org_simplimax <-fa(Ldatos, cor="cov",
+                   covar = TRUE, nfactor = 5, rotate = "simplimax")
+
+LFA_Esc_simplimax <-fa(Ldatos, cor="cor",
+                   covar = TRUE, nfactor = 5, rotate = "simplimax")
+
+print(LFA_org_simplimax, cut = .5)
+print(LFA_Esc_simplimax, cut = .5)
+```
+
+## Información Final obtenida
+Tras múltiples transformaciones a los análisis, llegamos a la conclusión de que, el modelo que más información nos aporta en general, es el modelo de componentes principales con los dato estandarizados con media 0 y varianza 1, sin rotaciones, y con 2 componentes principales, pues nos resumen la gran mayoría de la información de las variables acumulando más del 75% de variabilidad en los datos.
+
+Además de esto, la interpretación de los componentes principales, al ser una rotación de los datos originales, nos permiten una mayor facilidad para trabajar con ellos, además de eso, las variables son muy influyentes sobre ellos, por lo que la información que nos aportan y su sencillez nos permiten elegirlos
+
+```{r PCA_Esc2, fig.dim=c(6,3)}
+PC_Esc2 <-principal(datos, cor="cor",
+                   covar = TRUE, nfactor = 2, rotate = "none")
+#print(PC_Esc2, cut = .5)
+fa.diagram(PC_Esc2, cut = .5, digits = 2)
+```
+Y recordando la interpretación y utilidad el primer componente está relacionado con la presencia del cáncer (tamaño e influencia) ya que se relaciona con el volumen que tiene el cáncer, con qué tanto se ha propagado el cáncer a lo largo de la próstata, y finalmente, con el nivel de una proteína producida en la próstata, permitiéndonos estimar el avance del cáncer.
+
+Por otro lado, el segundo componente principal está relacionado con el tamaño de la próstata, pues está relacionada con el peso de la prostata (variable lweight).Además, está relacionada con el ensanchamiento de la próstata sin efecto cancerígeno (variable lbph), permitiéndonos ajustar el tamaño del cáncer con mayor precisión.

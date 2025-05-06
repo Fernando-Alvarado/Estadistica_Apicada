@@ -1,0 +1,261 @@
+---
+title: "Modelos Logísticos multinomiales ordinales"
+author: "César Valle"
+date: "19/03/2024"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 6.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(tidyverse)  # Más manejo de datos
+library(purrr)      # Para Map
+library(VGAM)       # Para los modelos multinomiales
+```
+
+# Introducción 
+Lo que vimos la ayudantía pasada fue sobre cómo podríamos utilizar los modelos logísticos multinomiales para enfrentarnos al problema en que la respuesta que tenemos tiene múltiples valores no numéricos, por lo que tuvimos que enfrentarlo con modelos muy particulares y llenos de coeficientes
+
+Pues afortunadamente podemos encontrar, en algunas situaciones, modelos más sencillos tanto de entender, como de trabajar, en este caso son los conocidos como modelos logisticos multinomiales ordinales
+
+# Funcionamiento
+Una vez que entendimos los modelos logísticos multinomiales nominales, podemos entender los modelos ordinales, la mayor diferencia es que, como su nombre lo indica, tenemos un orden en las respuestas, por lo que podemos trabajar con la función de distribución que generan las respuesta (por simplicidad, escribiremos 1 para la respuesta 1, 2 para la respuesta 2, etc.)
+
+Dicho esto, lo que nosotros tenemos son dos cosas, suponiendo que tenemos c respuestas, en primer lugar:
+$$\mathbb{P}[Y\leq1]\leq\mathbb{P}[Y\leq2]\leq\cdots\leq\mathbb{P}[Y\leq{}c]=1$$
+
+Y por otro lado, dado que la cantidad de respuestas que tenemos y que llegaremos a tener son finitas (pues los registros son finitos), entonces
+$$\mathbb{P}[Y\leq{}j]=\pi_1+\pi_2+\cdots\pi_j\hspace{.25 cm}\forall{j}\in\{1,2,\cdots,c\}$$
+
+Con esto, se implementa lo que se conoce como logit acumulativo (porque la función de distribución es la acumulación de la probabilidad), y ya vistos también con su versión de combinación lineal tendríamos
+
+$$logit(\mathbb{P}[Y\leq{}j])=\log(\frac{\mathbb{P}[Y\leq{}j]}{1-\mathbb{P}[Y\leq j]})=\beta_0^{(j)}+\beta_1^{(j)}x_1+\cdots+\beta_p^{(j)}x_p\hspace{.25 cm}\forall{}j\in\{1,2,\cdots,c-1\}$$
+Y con esto es con lo que se calculan las $\pi_j$, aprovechando la relación que hay entre los $\pi_j$ y la función de distribución
+
+Sin embargo, cualquier persona dentuda y con lentes podría decir: "\textbf{DE HECHO} con eso no ha bajado la cantidad de coeficientes"
+
+Y yo diré: "Es verdad, pero aún no acaba la clase"
+
+# Modelos ordinales con probabilidades proporcionales
+En este modelo se asume que la curvas que siguen los valores de la función de distribución respecto a cada valor de x son paralelas, esto provoca que haya una proporcionalidad que podemos observar en las funciones logit, que quedarán de la siguiente forma
+
+$$logit(\mathbb{P}[Y\leq{}j])=\log(\frac{\mathbb{P}[Y\leq{}j]}{1-\mathbb{P}[Y\leq j]})=\beta_0^{(j)}+\beta_1x_1+\cdots+\beta_px_p\hspace{.25 cm}\forall{}j\in\{1,2,\cdots,c-1\}$$
+
+Como podemos ver, el efecto que tienen ahora las x es constante, y se puede apreciar en las betas, así que ya sólo tenemos c-1 interceptos, y otros p coeficientes, o sea que aquí sí tenemos una drástica reducción de coeficientes, con lo que el modelo queda más sencillo, y podemos pasar a un caso práctico 
+
+# Caso práctico
+Si recordamos bien, el ejemplo que trabajamos la ayudantía anterior, nos sirve perfectamente como ejemplo, pues podemos recordar que las respuestas sí tienen un orden, así que podemos utilizarla con este nuevo enfoque
+
+```{r carga_procesamiento}
+#Cargamos los datos 
+DatosAg <- read.csv("datos.csv")
+head(DatosAg)
+
+#A los datos agregados
+Datos <- DatosAg %>%
+  
+#Los agrupamos por sexo, edad y respuesta 
+group_by(Sexo, Edad, Respuesta) %>%
+
+#Y escribimos tantos unos como respuestas
+do(data.frame(unos = rep(1, .$Frecuencia))) %>%
+
+#Regresamos a un dataframe
+as.data.frame() %>%
+
+#Transformamos las variables a tipo factor
+mutate("Sexo" = factor(Sexo, levels = c("Mujeres", "Hombres")),
+       "Edad"=factor(Edad, levels = c("18-23","24-40","> 40")), 
+       "Respuesta" = factor(Respuesta, levels = c("No/poca", "Importante", "Muy importante")))
+```
+
+## Ajustando modelos
+
+### Sin probabilidades proporcionales
+Por simplicidad, no intentaremos con el modelo con interacciones, pasaremos directamente al modelo sin interacciones
+
+```{r ajustando_nopar, echo=TRUE}
+#Ajustamos utilizando de nuevo la función vglm
+fitord_nopar <- vglm(Respuesta ~ Sexo+Edad,
+                  family = cumulative(parallel = FALSE), #La diferencia es esta
+                  data = Datos)
+#Notemos que el orden viene de que respuesta es tipo factor y a esta le pusimos orden
+```
+
+
+Y podemos darle expresión junto con los betas, que se ven de la siguiente forma, escribiendo $x_1 = \mathbb{I}_{Sexo=Hombres}$, $x_2 = \mathbb{I}_{Edad\in[24,40]}$ y $x_3 = \mathbb{I}_{Edad>40}$ 
+
+$$\log(\frac{\mathbb{P}[Y\leq{}j]}{1-\mathbb{P}[Y\leq j]})=\beta_0^{(j)}+\beta_1^{(j)}x_1+\beta_2^{(j)}x_2+\beta_3^{(j)}x_3\hspace{.25 cm}\forall{}j\in\{1,2\}$$
+Y a su vez, podemos verla como
+
+\begin{tabular}{|c|c|c|}
+ & Modelo sin interacciones, $j\in\{2,3\}$ & \\
+ Edad & Mujeres $(x_1 = 0)$ & Hombres $(x_1 = 1)$\\ \hline
+ 18-24 años & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_1^{(j)}$ \\ \hline
+ 24-40 años $(x_2 = 1)$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_2^{(j)}$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_1^{(j)}+\beta_2^{(j)}$\\ \hline
+ $>$40 años $(x_3 = 1)$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_3^{(j)}$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_1^{(j)}+\beta_3^{(j)}$
+\end{tabular}
+
+Donde tenemos los valores siguientes
+```{r coef_nopar, echo=FALSE}
+coef(fitord_nopar, matrix=TRUE)
+```
+
+Por otro lado, podemos ajustar el modelo de probabilidades proporcionales
+
+### Con probabilidades proporcionales
+```{r ajustando_par, echo=TRUE}
+#Ajustamos utilizando de nuevo la función vglm
+fitord_par <- vglm(Respuesta ~ Sexo+Edad,
+                  family = cumulative(parallel = TRUE), #La diferencia es esta
+                  data = Datos)
+```
+
+Y en este caso tenemos la siguiente información
+
+$$\log(\frac{\mathbb{P}[Y\leq{}j]}{1-\mathbb{P}[Y\leq j]})=\beta_0^{(j)}+\beta_1x_1+\beta_2x_2+\beta_3x_3\hspace{.25 cm}\forall{}j\in\{1,2\}$$
+
+\begin{tabular}{|c|c|c|}
+ & Modelo sin interacciones, $j\in\{2,3\}$ & \\
+ Edad & Mujeres $(x_1 = 0)$ & Hombres $(x_1 = 1)$\\ \hline
+ 18-24 años & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_1$ \\ \hline
+ 24-40 años $(x_2 = 1)$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_2$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_1+\beta_2$\\ \hline
+ $>$40 años $(x_3 = 1)$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_3$ & $logit(\mathbb{P}[Y\leq{}j])=\beta_0^{(j)}+\beta_1+\beta_3$
+\end{tabular}
+
+Donde tenemos los valores siguientes
+```{r coef_par, echo=FALSE}
+coef(fitord_par, matrix=TRUE)
+```
+Y podemos ver que en efecto, los valores de las betas son iguales
+
+## Pruebas de hipótesis
+
+Con esto, vamos a aplicar la prueba similar a la prueba F asociada a la tabla anova, ya sabemos que ajustando un modelo sin variables
+
+```{r pruebaF, echo=TRUE}
+#En este caso, notemos que no importa si es proporcional o no, 
+#pues el intercepto siempre cambia
+fitord0 <- vglm(Respuesta ~ 1,
+                  family = cumulative(parallel = FALSE),
+                  data = Datos)
+
+#Con eso escribimos las pruebas 
+```
+
+### Prueba F asociada a la tabla ANOVA en el caso proporcional
+
+```{r, echo=TRUE}
+#(Modelo proporcional)
+anova(fitord0, fitord_par, test= "LR", type = "I")
+```
+
+### Prueba F asociada a la tabla ANOVA en el caso no proporcional
+```{r, echo=TRUE}
+#(Modelo no proporcional)
+anova(fitord0, fitord_nopar, test= "LR", type = "I")
+```
+
+Podemos ver que en todos los casos se rechaza la hipótesis nula, por lo que podemos trabajar con cualquiera de ellos
+
+Finalmente, ¿cómo sabemos con cuál nos quedamos?
+
+Para eso vamos a utilizar de nueva cuenta la función anova, para comparar entre ellos, notemos que el que no es paralelo contiene los mismos coeficientes y algunos más, por lo que están anidados y podemos usar la función anova
+
+### Prueba para reducir el modelo
+
+```{r comparacion, echo=TRUE}
+#Escribimos los modelos
+anova(fitord_par, fitord_nopar, type = "I")
+```
+
+Como comentamos, el modelo reducido es aquel que tiene probabilidades proporcionales, así que nos quedaremos con ese, pues no hay suficiente evidencia para rechazar la hipótesis nula
+
+## Comparación entre modelos multinomiales y ordinales
+
+Finalmente, notemos que hay una diferencia entre esta forma de calcular las probabilidades y el modelo nominal, por lo que estos modelos no los podemos comparar con pruebas de hipótesis, pero sí con el AIC y BIC, a continuación utilizartemos el AIC para comparar
+
+```{r AIC_nominal, echo=FALSE}
+fit_no_int <- vglm(Respuesta ~ Sexo+Edad,
+                     family = multinomial(refLevel = "No/poca"),
+                     data = Datos)
+data.frame("Nominal"=c(AIC(fit_no_int)), "Ordinal con probs porp" = c(AIC(fitord_par)))
+```
+
+Como podemos ver, el AIC del modelo ordinal con probabilidades proporcionales es el mejor, por lo que es el que utilizaríamos, aunque ya conocemos la forma de hacer lo siguiente, que son gráficas e interpretación
+
+```{r graficas, echo=FALSE}
+#Obtenemos las combinaciones, aprovechando la tabla agregada
+combinaciones <- unique(DatosAg[,1:2]) %>%
+  arrange(Sexo, Edad)
+
+#También podríamos obtenerla con los datos desagregados como:
+#combinaciones <- unique(datos[,1:2]) %>% arrange(Sexo, Edad)
+
+#Con esto aplicamos la función predict, con tipo "response" y tenemos:
+probas <- predict(fitord_par, combinaciones, type = "response")
+
+#Finalmente, unimos las combinaciones con sus probabilidafes
+datos_modelo <- data.frame(cbind(combinaciones, probas))
+
+#Le cambiamos el nombre, para más adelante
+colnames(datos_modelo)<-c("Sexo", "Edad", "No/poca", "Importante", "Muy importante")
+
+#En este caso, necesitamos los datos en tipo long
+data_long <- datos_modelo %>% 
+  pivot_longer(cols = c(`No/poca`, Importante, `Muy importante`), 
+               names_to = "Respuesta", 
+               values_to = "Probabilidad") %>%
+#Aplicamos orden al tipo factor
+mutate("Respuesta"=factor(Respuesta, levels = c("No/poca", "Importante", "Muy importante")), "Edad"=factor(Edad, levels = c("18-23", "24-40", "> 40")))
+
+#Con esto podemos crear la gráfica
+ggplot(data_long, aes(x = Edad, y = Probabilidad, fill = Respuesta)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8),
+           width = 0.7) +
+  geom_text(aes(label = round(Probabilidad, 2)), 
+            position = position_dodge(width = 0.8), 
+            vjust = -0.7, size = 5) +  # Añadir etiquetas con probabilidades
+  facet_grid(. ~ Sexo) + #Este nos permite separar por sexo
+  labs(
+    title = "Probabilidades por Sexo y Edad",
+    x = "Edad",
+    y = "Probabilidad"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+    legend.position = "top"
+  )
+
+```
+
+Y la interpretación en realidad no cambió mucho con respecto a la que realizamos con los valores nominales, así que aquí terminaría
+
+

@@ -1,0 +1,296 @@
+---
+title: "Repaso RLM"
+subtitle: "La prueba F asociada a la tabla ANOVA"
+author: "Seminario de Estadística 2024-1"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+date: "21/08/2023"
+geometry: margin=1.5cm
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Un EXTRA por si les interesa lo que verán a continuación
+#install.packages("remotes")
+#remotes::install_github("R-CoderDotCom/ggcats@main")
+#remotes::install_github("R-CoderDotCom/ggdogs@main")
+
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+gc()
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 7.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+```
+
+# Recordatorio
+Recordemos de nuestro curso de MNPyR que los modelos de regresión con los que trabajamos eran de la forma
+
+$$y_i=\beta_0+\beta_1x_{1i}+\beta_2x_{2i}+\cdots+\beta_px_{pi}+\varepsilon_i$$
+O también visto como 
+
+$$Y=X\beta{}+\varepsilon$$
+Donde $\mathbb{E}[\varepsilon]=0$ y $Var[\varepsilon]=\sigma^2\mathbb{I}$
+
+A partir de esto se desarrolla toda la teoría con la que podemos obtener los estimadores $\widehat{\beta_0},\cdots,\widehat{\beta_p}$ de $\beta_0,\cdots,\beta_p$ respectivamente, al igual que los errores $\widehat{e}$
+
+
+Dicho esto, de manera descriptiva, esto sería suficiente para hablar sobre los datos y hacernos una idea del comportamiento de los mismos
+
+Sin embargo, si queremos realizar un análisis en mayor profundidad debemos verificar los supuestos, pues TODAS las pruebas de hipótesis que vimos aplicadas sobre los parámetros $\beta_0,\cdots,\beta_p$ dependen de conocer la distribución de las variables aleatorias $\varepsilon$, y dichos supuestos serían
+
+```{=tex}
+\begin{itemize}
+  \item[i.] Linealidad
+  \item[ii.] Homocedasticidad
+  \item[iii.] Normalidad
+  \item[iv.] Aleatoriedad
+\end{itemize}
+```
+
+Sin emabargo, se hablará de esto, en mayor profundidad más adelante
+
+\newpage
+
+# Tras los supuestos
+Cuando se cumplen los supuestos, podemos desarrollar multiples resultados, el primer resultado que debemos verificar es la prueba F asociada a la tabla ANOVA
+
+¿Por qué?
+
+Recordemos que la prueba F asociada a la tabla ANOVA contrasta:
+
+$$H_0:\beta_1=0,\beta_2=0,\cdots,\beta_p=0\hspace{.5 cm}\text{vs.}\hspace{.5 cm}H_a:\beta_i\neq0\text{ para alguna }i=1,\cdots,p$$
+
+Por lo que, si esta prueba no se rechaza, al no tener suficiente evidencia para afirmar que algún $\beta$ no es cero, entonces nuestro modelo no tendría ningún sentido, ya que sería de la forma
+$$y_i=\beta_0+\varepsilon_i$$
+Para todo $i=1,\cdots,n$.
+
+Por lo que, la prueba F asociada a la prueba ANOVA es lo más importante para nuestros modelos (después de la verificación de supuestos)
+
+Ahora que ya todos nos acordamos de lo que es la prueba F, pasemos a los siguientes ejemplos, donde asumiremos que ya se cumplen los supuestos
+
+# Ejemplos
+## Ejemplo 1
+
+```{r Ejemplo1, echo=TRUE}
+#Comenzamos leyendo nuestros datos
+df_1<-read.csv("ejemplo1RLM.csv")
+
+#Obtenemos información sobre el archivo
+str(df_1)
+
+```
+En este caso, todos los datos son numéricos, por lo que es un poco más difícil de graficarlos, veremos dos opciones en esta ayudantía, en primer lugar, graficar variable por variable 
+
+```{r FigEj1, echo=TRUE, fig.cap="Podemos observar el comportamiento de la variable y, conforme aumenta la variable X1, siendo un comportamiento creciente"}
+#Graficamos nuestras variables
+if (require(ggdogs)){
+ggplot(df_1, aes(x=X1, y=y))+
+  geom_dog(size=2, dog="chihuahua")+
+  ggtitle("Variable y vs X1", subtitle = "Comportamiento de la variable y respecto a la variable X1")
+  } else{
+  ggplot(df_1, aes(x=X1, y=y))+
+  geom_point(size=2)+
+  ggtitle("Variable y vs X1", subtitle = "Comportamiento de la variable y respecto a la variable X1")
+}
+```
+
+A partir de la bella Figura \@ref(fig:FigEj1), podemos ver que, al menos respecto a la variable $X1$, $y$ tiene un comportamiento creciente, además de que sí parece tener relevancia la variable $X1$ para $y$
+
+
+```{r Fig2Ej1, echo=TRUE, fig.cap="Podemos observar el comportamiento de la variable y, conforme aumenta la variable X2, siendo un comportamiento creciente"}
+#Graficamos nuestras variables
+if (require(ggdogs)){ggplot(df_1, aes(x=X2, y=y))+
+  geom_dog(size=2, dog="husky")+
+  ggtitle("Variable y vs X2", subtitle = "Comportamiento de la variable y respecto a la variable X2")} else{
+    ggplot(df_1, aes(x=X2, y=y))+
+  geom_point(size=3)+
+  ggtitle("Variable y vs X2", subtitle = "Comportamiento de la variable y respecto a la variable X2")
+  }
+```
+De igual forma, partir de la agraciada Figura \@ref(fig:Fig2Ej1), podemos ver que respecto a la variable $X2$, $y$ también un comportamiento creciente, y de igual forma, pareciera ser que $X2$ es relevante para $y$
+
+
+Sin embargo, debemos realizar nuestras pruebas de hipóteis, para lo cual, vamos a utilizar la función lm (de linear model)
+
+```{r fitEj1, echo=TRUE}
+#Ajustamos el modelo
+fit<-lm(y~X1+X2, #Aquí va la fórmula, dónde colocamos lo que queremos explicar a la izquierda
+        #Y lo que explica a la derecha
+        data = df_1 #Aquí colocamos el dataframe del que tomamos los datos
+        )
+
+#Obtenemos nuestro resumen del ajuste
+summary(fit)
+```
+
+A partir del summary, podemos ver mucha información, sin embargo, lo que nos importa es la última línea, donde dice \textbf{F-statistic}, la cual nos dice que al menos uno de X1 y X2 es importante para nuesro análisis de $y$, con una significancia de .05
+
+Pero. ¿qué ocurre con los valores en la última columna?
+
+Estos son p-value que nos indican si son relevantes o no las variables, sin embargo \textbf{MUCHO OJO} 
+
+Estos p-values no son de una prueba hecha en conjunto, como lo fue la prueba F, dichos p-values surgen de realizar una prueba de hipótesis de un único coeficiente, asumiendo que los demás se encuentra en el modelo
+
+Dicho de otra forma, la prueba de hipótesis de la fila 2 lo que contrastó fue 
+
+$$H_0:(\beta_1=0)|\beta_0,\beta_2\hspace{.5 cm}\text{vs}\hspace{.5 cm}H_a:(\beta_1\neq0)|\beta_0,\beta_2$$
+Esto no afecta que lo podamos ver como
+
+$$H_0:\beta_1=0\hspace{.5 cm}\text{vs}\hspace{.5 cm}H_a:\beta_1\neq0$$
+Sin embargo, sí implica más cosas, en primer lugar, implica que cada una de estas pruebas son independientes entre sí, pues toman la información del resto de betas por dada, y no nos dicen si la varible en cuestión es relevante, en su lugar tendría una interpretación como \textbf{¿Este coeficiente nos aporta más información aparte de la que nos aportan los demas?}.
+
+Claro que son de utilidad, pero \textbf{LA MÁS IMPORTANTE ES LA PRUEBA F}
+
+## Removiendo datos
+Supongamos pues, que quisieran eliminar alguna variable del caso anterior porque "no es significativa", entonces, haremos pruebas eliminando cada una de las posibles variables (X1, X2 y el intercepto)
+
+```{r lmRed, echo=TRUE}
+#Ajustamos los tres modelos mencionados
+fit_1_red1<-lm(y~X2, data = df_1)
+fit_1_red2<-lm(y~X1, data = df_1)
+
+#Para eliminar el intercepto, basta con agregar un -1 a la fórmula
+fit_1_red0<-lm(y~-1+X1+X2, data = df_1)
+```
+
+Podemos ver a continuación, con el summary, que nos llevaremos una sorpresa
+
+```{r summaryred0, echo=TRUE}
+#Presentamos el summary sin intercepto
+summary(fit_1_red0)
+```
+
+Y con esto podemos ver que lo que comentamos de la información del resto de variables es muy importante, por ejemplo, en el modelo completo, las pruebas $t$ para $X1$ y $X2$ tenían por valores 0.288 y 0.81, respectivamente, por lo que, si nos fuéramos con la idea de que son pruebas en conjunto, habríamos pensado en eliminar ambas, sin embargo, ahora que no se encuentra el intercepto, podemos ver que han cambiado, y ahora tenemos .5995 y 0.0134 respectivamente, demostrando que, con una significancia de .05, se tiene que $X2$ es importante bajo las pruebas $t$
+
+```{r summaryred1, echo=TRUE}
+#Presentamos el summary sin X1
+summary(fit_1_red1)
+```
+
+De nueva cuenta, podemos observar cambios en los p-values, y más aún, podemos ver que, de hecho, el intercepto no pareciera ser relevante, mientras que $X2$ sí lo es
+
+```{r summaryred2, echo=TRUE}
+#Presentamos el summary sin X2
+summary(fit_1_red2)
+```
+Por último, cuando no tenemos a $X2$ volvemos a tener cambios en nuestros p-values
+
+
+En general, lo que podemos ver es que dependiendo del conjunto de variables, las pruebas $t$ siguen variando, sin embargo, podemos ver que al menos una de las variables (entre $X1$ y $X2$) resulta significativa, aunque en el modelo completo ninguno lo parecía (con una significancia de .05), pero nosotros ya sabíamos que al menos una debía serlo, gracias a la prueba F asociada a la tabla ANOVA del modelo completo
+
+Y dicho sea de paso, podemos también observar, que las pruebas $F$ asociadas a la tabla ANOVA de cada uno de los modelos, son diferentes, esto es porque todas las pruebas de hipótesis que realicemos con un modelo, van a depender de los parámetros que tenga dicho modelo, así que todos estos cambios son completamente normales
+
+De iugal forma, si son muy observadores, podrán notar que de hecho, cuando el modelo incluye el intercepto y sólo una de las otras dos variables, entonces la prueba $F$ tiene el mismo p-value que la prueba $t$ (pues en ese caso la prueba $F$ comprueba lo mismo que la prueba $t$)
+
+Sin embargo, esto no tiene suficiente solidez, pues sólo eliminamos variables a modo de experimento. Verán más adelante que debemos utilizar pruebas de hipótesis para poder determinar si podemos eliminar múltiples variables, y que no necesariamente es tan fácil 
+
+Pero dejemos eso para después y pasemos a otro ejemplo más sencillo para fines de gráficas
+
+## Ejemplo 2
+```{r Ejemplo2, echo=TRUE}
+#Comenzamos leyendo nuestros datos
+df_2<-read.csv("ejemplo2RLM.csv")
+
+#Obtenemos información sobre el archivo
+str(df_2)
+```
+En este otro caso también tenemos datos numéricos, por lo que veremos nuestra segunda forma de realizar nuestras gráficas, graficar todo junto
+
+```{r FigEj2, echo=TRUE, fig.cap="Podemos observar el comportamiento de la variable y respecto a las demás variables"}
+#La paquetería GGally se encarga de todo
+ggpairs(data = df_2, title = "Gráficas de nuestro Dataframe")
+```
+
+Aprovechando la Figura \@ref(fig:FigEj2) podemos ver que parece sí existir una relación muy grande entre la variable $y$ y la variable $X1$
+
+Sin embargo, la variable $X2$ parece tener una dispersión muy grande, pero aun se ve cierta relación. 
+
+Pasemos ahora a comprobar con nuestras nuestras pruebas de hipóetsis (que recordemos, dependen de la verificación de supuestos)
+
+```{r fitEj2, echo=TRUE}
+#Ajustamos el modelo
+fit2<-lm(y~X1+X2, data = df_2)
+#Obtenemos nuestro resumen
+summary(fit2)
+```
+En este caso, Nuestro p-value de la prueba F asociada a la tabla ANOVA también, con una significancia de .05 nos dice que al menos una de nuestras dos variables es importante
+
+Sin embargo, a diferencia del ejemplo anterior, ahora podemos observar que en la última columna, todas las variables nos aportan información diferente a las demás, por lo que no sería tan fácil reducir este modelo (lo que sea que eso signifique), además nos demuestra que no podemos simplemente basarnos en la gráfica, pues la información puede estar oculta
+
+## Ejemplo 3
+Finalmente, pasemos al ejercicio con más "jugo"
+
+```{r Ejemplo3, echo=TRUE}
+#Comenzamos leyendo nuestros datos
+df_3<-read.csv("ejemplo3RLM.csv")
+
+#Obtenemos información sobre el archivo
+str(df_3)
+```
+En este caso, notemos que tenemos una variable que parece ser categórica, por lo que la pasaremos a tipo factor
+
+```{r facEj3, echo=TRUE}
+df_3$X1c<-factor(df_3$X1c)
+```
+
+Volvemos entonces a probar con la función str
+
+```{r StrEj3, echo=TRUE}
+str(df_3)
+```
+Ahora sí podemos ver nuestros niveles, podemos observar que son 3, además, podemos ver que tenemos sólo una variable numérica, por lo que las gráficas descriptivas son más fáciles de realizar, además, tenemos algunas buenas herramientas de los dos métodos que vimos previamente
+
+```{r FigEj3, echo=TRUE, fig.cap="Podemos observar el comportamiento de la variable y respecto a la variable X2, separadas por la variable X1c"}
+#La paquetería GGally se encarga de todo
+ggpairs(data = df_3, title = "Gráficas de nuestro Dataframe", aes(colour=X1c))
+```
+
+Primero la Figura \@ref(fig:FigEj3) en la cual podemos ver que podemos separar nuestro análisis por cada uno de los niveles de la variable categórica, facilitando nuestro análisis
+Podemos ver que sí parece haber una relación muy fuerte con X2, y de igual forma, sí parece haber diferencias respecto a la variable de tipo factor, pareciendo ambas importantes.
+
+Veamos ahora el otro método
+
+```{r Fig2Ej3, echo=TRUE, fig.cap="Podemos observar el comportamiento de la variable y respecto a la variable X2, separadas por la variable X1c"}
+
+#Graficamos nuestras variables separadas por categoría
+if (require(ggcats)){
+df_3$cat<-ifelse(df_3$X1c=="A1", "nyancat", 
+                 ifelse(df_3$X1c=="A2", "maru", "pop"))
+ggplot(df_3, aes(x=X2, y=y))+
+  geom_cat(size=.75, aes(cat=cat))+
+  ggtitle("Variable y vs X2", subtitle = "Comportamiento de la variable y respecto a la variable X2, separados por X1c")
+  } else{
+  ggplot(df_3, aes(x=X2, y=y, col=X1c))+
+  geom_point(size=2)+
+  ggtitle("Variable y vs X2", subtitle = "Comportamiento de la variable y respecto a la variable X2, separados por X1c")
+}
+```
+De nueva cuenta, con la Figura \@ref(fig:Fig2Ej3) podemos ver que las variables son relevantes, pero debemos pasar a nuestras pruebas de hipótesis para ver si de verdad son relevantes
+
+```{r fitEj3, echo=TRUE}
+#Ajustamos el modelo
+fit3<-lm(y~X1c+X2, data = df_3)
+#Obtenemos nuestro resumen
+summary(fit3)
+```
+En este caso, nuevamente podemos ver que nuestras variables son relevantes, gracias a la prueba F de la tabla anova, con una significancia de .05
+

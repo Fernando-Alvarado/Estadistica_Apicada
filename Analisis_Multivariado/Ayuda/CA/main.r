@@ -632,6 +632,8 @@ res_ca = ca(vinos)
 # Resumen con coordenadas
 summary_ca = summary(res_ca)
 
+summary_ca
+
 colnames(summary_ca$rows)
 
 

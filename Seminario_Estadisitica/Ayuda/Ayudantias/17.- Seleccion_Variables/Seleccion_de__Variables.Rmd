@@ -1,0 +1,377 @@
+---
+title: "Selección de variables"
+author: "Seminario de Estadística 2025-1"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+header-includes:
+   - \usepackage[spanish]{babel}
+   - \usepackage[utf8]{inputenc}
+   - \decimalpoint
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+#Elegimos nuestra carpeta
+setwd("C:/Users/bortega/OneDrive - MLG.COM.MX/Escritorio/Seminario Estadística")
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 3.5),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(DHARMa)     # Para la verificación de supuestos
+library(ISLR2)       # Para la base de datos
+library(leaps)      # Para el cálculo de los mejores conjuntos de variables por diversos métodos
+library(bestglm)    # Para obtener el mejor subconjunto
+library(glmnet)     # Para utilizar la penalización Lasso
+```
+
+# Introducción
+Como hemos visto hasta ahora, nosotros ya hemos aprendido muchos modelos lineales que nos pueden servir para realizar nuestros análisis, sin embargo, aún no hemos resuelto la mayor de las dudas
+
+¿Cómo sabemos que nuestras variables son las más indicadas para nuestro análisis? ¿Cómo podemos elegir las más representativas? ¿Cómo podemos hacer esta selección sin que se vuelva un proceso infinito?
+
+Pues para todos esos problemas también ya hemos estado aprendiendo diversos métodos que nos serán de utilidad, veamos un ejemplo adicional que nos será de utilidad para la tarea :P 
+
+# Regresión del salario de bateadores a través de múltiples estadísticas
+
+Se nos solicitó realizar una regresión, para entender qué variables podrían ser las más influyentes en el salario de una lista de bateadores de 1986
+
+Lo primero que observamos en los datos, es que tenemos múltiples datos sin información de salario, por lo que, para el análisis decidimos eliminar dichas observaciones (Lo mencionado se encuentra en el Chunk "CargarDatos")
+ 
+```{r CargaDatos, include=FALSE}
+
+names(Hitters)
+dim(Hitters)
+
+#Cargamos los datos
+datos <- Hitters
+
+#Observamos los datos
+str(datos)
+summary(datos)
+
+sum(is.na(Hitters$Salary))
+
+datos <- na.omit(Hitters)
+str(datos)
+```
+Tras haber realizado nuestro preprocesamiento de los datos, comenzamos realizando un análisis descriptivo del comportamiento de los salarios, a través de varias de las características obtenidas
+
+Una posible primera idea es que los bateadores con mayor experiencia son los que tiene un mejor salario, o lo que es lo mismo, con mayor tiempo en las ligas mayores, mejor salario
+
+```{r Graficas, echo=FALSE, fig.cap="Salario contra Años en las ligas mayores"}
+ggplot(data = datos,mapping = aes(x = Years, y = Salary, color = League, shape = Division)) + 
+  geom_point() + 
+  theme_bw()
+```
+A partir de la Figura \@ref(fig:Graficas) podemos ver que sí parece haber un crecimiento, pues el salario hasta 5 años se suele mantener muy bajo, y de 5 en adelante ya parece aumentar la dispersión, además, podemos ver que hay varios puntos que tenemos dispersos, por ejemplo, tenemos varios puntos con salarios muy altos que parecen ser de la división E, mientras que hay puntos que, a pesar de tener muchos años en las ligas mayores, no alcanzan un salario alto, estos puntos forman parte de la división W
+
+De ahí en fuera, hay muchos datos que se encuentran muy dispersos entre 5 y 15 años en las grandes ligas
+
+Veamos ahora si podemos obtener más información de alguna variable, en este caso, vamos a utilizar la cantidad de home runs, y de carreras, que seguramente serían influyentes en el salario y "grandeza" de un bateador
+
+```{r Graficas2, echo=FALSE, fig.cap="Salario a través de las carreras"}
+ggplot(data = datos,mapping = aes(x = Runs, y = Salary, color = HmRun,shape = NewLeague)) + 
+  geom_point() + 
+  theme_bw()
+```
+Con esta nueva Figura \@ref(fig:Graficas2), podemos ver que en general la cantidad de carreras también son muy relevantes, al igual que los Home Run, podemos ver que hay una especie de relación entre carreras y Home Run, pues a mayor carreras, también vemos una mayor cantidad de Home Run, y además, estas cosas sí son muy influyentes, pues podemos ver que para jugadores con más de 50 carreras, encontramos mayores salarios, aunque no parece haber nueva información del cambio de liga que tendrán en 1987, sin embargo, también podemos ver algunos datos con alto salario y pocas carreras, esto puede deberse a que hayan tenido una mala temporada, pero sigue siendo creíble
+
+Hecho todo el análisis anterior, procedemos a realizar nuestra búsqueda de mejor conjunto de variables
+
+```{r Leaps, include=FALSE}
+#Lo que podemos hacer con leaps, es ajustar un modelo en general y encontrar el
+#mínimo BIC, para el mejor subconjunto de variables
+
+#Por default tiene que el número máximo de variables a considerar son 8
+#modificamos eso con el parámetro nvmax, para que considere todas las variables
+L_best <- regsubsets(Salary ~ ., data = datos, nvmax=19)
+best_sum <- summary(L_best)
+
+#A través de la siguiente gráfica podemos determinar la cantidad de variables con
+#las que debemos trabajar
+plot(L_best, scale = "bic")
+
+#Y podemos obtener las variables con las que debemos trabajar
+coef(L_best, 6)
+
+#Podemos ajusta el modelo, y probar
+L_fit = lm(Salary~AtBat+Hits+Walks+CRBI+Division+PutOuts, data = datos)
+summary(L_fit)
+```
+```{r Leaps_Fordward, include=FALSE}
+#Además del proceso anterior, tenemos la posibilidad de utilizar 
+#stepwise con Leaps, para encontrar un subconjunto
+
+#Podemos dejar los mismo valores en general
+L_ford <- regsubsets(Salary ~ ., data = datos, nvmax=19, method = "forward")
+
+#Con la gráfica encontramos 6 valores
+plot(L_ford, scale = "bic")
+
+#Y podemos obtener las variables con las que debemos trabajar
+coef(L_ford, 6)
+
+#Podemos ajusta el modelo, y probar
+L_fit_ford = lm(Salary~AtBat+Hits+Walks+CRBI+Division+PutOuts, data = datos)
+summary(L_fit_ford)
+#Obtuvimos lo mismo que con el mejor subconjunto 
+```
+```{r Leaps_backward, include=FALSE}
+#Además del proceso anterior, tenemos la posibilidad de utilizar 
+#stepwise con Leaps, para encontrar un subconjunto
+
+#Podemos dejar los mismo valores en general
+L_back <- regsubsets(Salary ~ ., data = datos, nvmax=19, method = "backward")
+
+#Con la gráfica encontramos 8 valores
+plot(L_back, scale = "bic")
+
+#Y podemos obtener las variables con las que debemos trabajar
+coef(L_back, 8)
+
+#Podemos ajusta el modelo, y probar
+L_fit_back = lm(Salary~AtBat+Hits+Walks+CRuns+CRBI+CWalks+Division+PutOuts, data = datos)
+summary(L_fit_back)
+#Obtuvimos lo mismo que con el mejor subconjunto 
+```
+
+Intentamos probar con la paquetería leaps, sin embargo, dicha paquetería sólo nos es de utilidad para la familia gaussiana y liga identidad, por lo que decidimos utilizar otros métodos
+
+```{r best_glm, include=FALSE}
+#Primero vamos a recolocar los datos, con la variable salario al final 
+Xy <- datos[,c(1:18,20,19)]
+
+#Realizamos pues nuestro proceso
+best = bestglm(Xy, family = gaussian, IC = "BIC", method = "exhaustive")
+summary(best$BestModel)
+BIC(best$BestModel)
+#Y ya con eso obtuvimos nuestras mejores 6 variables, como con leaps
+```
+
+```{r best_forward, include=FALSE}
+#Para estos procesos vamos a necesitar dos ajustes que servirán como cotas
+fit_nulo <- glm(formula = Salary ~ 1, family = gaussian(link = "identity"), data = datos)
+
+fit_comp <- glm(formula = Salary ~ ., family = gaussian(link = "identity"), data = datos)
+
+#Con esas cotas, podemso proceder con nuestro proceso step
+best_forward <- step(fit_nulo, scope = list(lower = fit_nulo, upper = fit_comp), trace = FALSE, direction = "forward", k = log(dim(datos)[1]))
+
+summary(best_forward)
+BIC(best_forward)
+#Obtuvimos los mismos datos que con leaps
+```
+
+```{r best_backward, include=FALSE}
+#Podemos repetir los pasos para esto
+fit_nulo <- glm(formula = Salary ~ 1, family = gaussian(link = "identity"), data = datos)
+
+fit_comp <- glm(formula = Salary ~ ., family = gaussian(link = "identity"), data = datos)
+
+#Con esas cotas, podemos proceder con nuestro proceso step
+#Nada más cambiamos donde comenzamos
+best_backward <- step(fit_comp, scope = list(lower = fit_nulo, upper = fit_comp), trace = FALSE, direction = "backward", k = log(dim(datos)[1]))
+
+summary(best_backward)
+BIC(best_backward)
+#Obtuvimos los mismos datos que con leaps
+```
+
+```{r LassoSimple, include=FALSE}
+#Para utilizar la penalización Lasso, debemos utilizar la matriz 
+#diseño de nuestro modelo
+X <- model.matrix(object = Salary ~ .,data = datos)
+#Le vamos a quitar el intercepto, pues glmnet ya lo agrega por default
+X_aux <- X[,-1]
+
+#Además de lo anterior, debemos obtener la variable y 
+Y <- datos$Salary
+
+#Con estos datos, podemos realizar la penalización Lasso
+lasso_simple <- glmnet(X_aux,Y,family = gaussian(link = "identity"), nlambda = 100)
+
+#Pero ahora viene el probelma usual, cómo determinamos cuál es el 
+#mejor modelo obtenido de nuestras 100 iteraciones
+
+#Para eso, los coeficientes los vamos a utilizar, y buscaremos los 
+#coeficientes que no son 0 en cada iteración, y lo haremos un dataframe
+coeficientes <- data.frame(t(as.matrix(coef(lasso_simple)!=0)))
+
+#Como podemos tener una gran cantidad de valores repetidos con esto, 
+#vamos a aplica la función unique, que nos ayudará
+coeficientes <- unique(coeficientes)
+
+#Reduciendo drásticamente los valores con los que vamos a trabajar
+#Y con esto, vamos a obtener la combinación que tiene el menor BIC
+BIC_lasso_simple<-sapply(1:length(coeficientes$X.Intercept.), function(x){
+  #El modelo lo ajustamos igual, pero extraemos los datos de la matriz
+  #diseño, por lo que ya tenemos las variables y el intercepto
+  #Por lo que le agregamos el -1, para no repetir el intercepto
+  BIC(glm(formula = Y ~ X[,unlist(coeficientes[x,])] - 1, family = gaussian))}) 
+
+#Y ahora guardamos los coeficientes del mejor modelo
+best_lasso_simple<-glm(as.formula(paste0("Salary~", paste(gsub("DivisionW", "Division", colnames(X_aux))[unlist(coeficientes[which.min(BIC_lasso_simple),])[-c(1)]], collapse = "+"))),data=datos, family = gaussian)
+
+#Otra forma de extraerlo con mayor facilidad, pero más dificil de leer
+best_lasso2 <- glm(formula = Y ~ X_aux[,unlist(coeficientes[which.min(BIC_lasso_simple),c(-1)])], family = gaussian)
+
+#Esto son sólo para verificar que tenemos el menor BIC
+summary(BIC_lasso_simple)
+summary(best_lasso_simple)
+summary(best_lasso2)
+BIC(best_lasso_simple)
+BIC(best_lasso2)
+```
+
+```{r LassoComp, include=FALSE}
+#Realizamos un cambio sobre la matriz diseño
+X2 <- model.matrix(object = Salary ~ .^2 ,data = datos)
+#Le vamos a quitar el intercepto, pues glmnet ya lo agrega por default
+X2_aux <- X2[,-1]
+
+#Además de lo anterior, debemos obtener la variable y 
+Y <- datos$Salary
+
+#Con estos datos, podemos realizar la penalización Lasso
+lasso_comp <- glmnet(X2_aux,Y,family = gaussian(link = "identity"), nlambda = 100)
+
+#Pero ahora viene el probelma usual, cómo determinamos cuál es el 
+#mejor modelo obtenido de nuestras 100 iteraciones
+
+#Para eso, los coeficientes los vamos a utilizar, y buscaremos los 
+#coeficientes que no son 0 en cada iteración, y lo haremos un dataframe
+coeficientes2 <- data.frame(t(as.matrix(coef(lasso_comp)!=0)))
+
+#Como podemos tener una gran cantidad de valores repetidos con esto, 
+#vamos a aplica la función unique, que nos ayudará
+coeficientes2 <- unique(coeficientes2)
+
+#Reduciendo drásticamente los valores con los que vamos a trabajar
+#Y con esto, vamos a obtener la combinación que tiene el menor BIC
+BIC_lasso_comp<-sapply(1:length(coeficientes2$X.Intercept.), function(x){
+  #El modelo lo ajustamos igual, pero extraemos los datos de la matriz
+  #diseño, por lo que ya tenemos las variables y el intercepto
+  #Por lo que le agregamos el -1, para no repetir el intercepto
+  BIC(glm(formula = Y ~ X2[,unlist(coeficientes2[x,])] - 1, family = gaussian))}) 
+
+#Y ahora guardamos los coeficientes del mejor modelo
+#best_lasso_comp<-glm(as.formula(paste0("Salary~", paste(gsub("LeagueN", "League", gsub("DivisionW", "Division", colnames(X2_aux)))[unlist(coeficientes2[which.min(BIC_lasso_comp),])[-c(1)]], collapse = "+"))),data=datos, family = gaussian)
+
+#Utilizamos la segunda forma porque la primera tiene algunas complicaciones
+best_lasso_comp2 <- glm(formula = Y ~ X2_aux[,unlist(coeficientes2[which.min(BIC_lasso_comp),c(-1)])], family = gaussian)
+
+#Esto son sólo para verificar que tenemos el menor BIC
+summary(BIC_lasso_comp)
+summary(best_lasso_comp2)
+BIC(best_lasso_comp2)
+
+#Y esto, para obtener los coeficientes que estamos utilizando
+sapply(strsplit(names(best_lasso_comp2$coefficients)[c(2:21)],split = "]"), function(x){
+  x[3]
+})
+```
+
+```{r LassoGamma, include=FALSE}
+#Realizamos un cambio sobre la matriz diseño
+X_gamma <- model.matrix(object = Salary ~ .^2 ,data = datos)
+#Le vamos a quitar el intercepto, pues glmnet ya lo agrega por default
+X_gamma_aux <- X_gamma[,-1]
+
+#Además de lo anterior, debemos obtener la variable y 
+Y <- datos$Salary
+
+#Con estos datos, podemos realizar la penalización Lasso
+lasso_gamma <- glmnet(x = X_gamma_aux, y = Y, family = Gamma(link = "identity"),nlambda = 100)
+
+#Pero ahora viene el probelma usual, cómo determinamos cuál es el 
+#mejor modelo obtenido de nuestras 100 iteraciones
+
+#Para eso, los coeficientes los vamos a utilizar, y buscaremos los 
+#coeficientes que no son 0 en cada iteración, y lo haremos un dataframe
+coeficientes_gamma <- data.frame(t(as.matrix(coef(lasso_gamma)!=0)))
+
+#Como podemos tener una gran cantidad de valores repetidos con esto, 
+#vamos a aplica la función unique, que nos ayudará
+coeficientes_gamma <- unique(coeficientes_gamma)
+
+#Reduciendo drásticamente los valores con los que vamos a trabajar
+#Y con esto, vamos a obtener la combinación que tiene el menor BIC
+
+#No utilizamos el mismo proceso que anteriormente, por falta de convergencia en algunos valores
+#BIC_lasso_gamma<-sapply(1:length(coeficientes_gamma$X.Intercept.), function(x){
+  #BIC(glm(formula = Y ~ X_gamma[,unlist(coeficientes_gamma[x,])] - 1, family = Gamma(link = "identity")))}) 
+
+BICs <- list(NA)
+Modelos <- list(NA)
+for (i in c(1:36,38:41,43:47,51:89)){
+  Xi <- X_gamma[,unlist(coeficientes_gamma[i,])]
+  AjusteMV <- glm(formula = Y ~ Xi - 1, family = Gamma(link ="identity"))
+  Modelos[[i]] <- AjusteMV
+  BICs[[i]] <- BIC(AjusteMV)
+}
+
+#Ya guardamos nuestro proceso, y además podemos acceder al mejor modelo 
+BIC_minimo <- which.min(unlist(BICs))
+Ajuste_optimo <- Modelos[[BIC_minimo]]
+
+#Esto son sólo para verificar que tenemos el menor BIC
+summary(unlist(BICs))
+summary(Ajuste_optimo)
+BIC(Ajuste_optimo)
+
+#Y esto, para obtener los coeficientes que estamos utilizando
+vars_gamma <- gsub("Xi", "",names(Ajuste_optimo$coefficients))
+```
+Utilizamos la función bestglm de la paquetería bestglm, usamos un step forward, un backward  y una optimización Lasso, con modelos simples, sin interacciones, de la Familia gaussiana, con liga identidad, también una optimización Lasso con interacciones, familia gaussiana y liga identidad, y una optimización Lasso con interacciones, familia Gamma y liga identidad, y los resultados, en términos del BIC, que utilizaremos para elegir son los siguientes:
+
+```{r tablaBIC, echo=FALSE}
+data.frame("Proceso"=c("Mejor Subconjunto (Efectos principales)", "Step forward (Efectos principales)", "Step backward (Efectos principales)", "Optimización Lasso (Efectos principales)", "Optimización Lasso (Con interacciones)", "Optimización Lasso (Con interacciones)"), "Familia"=c(rep("Gaussiana", 5), "Gamma"), "Liga"=c(rep("Identidad", 6)), "BIC"=c(BIC(best$BestModel), BIC(best_forward), BIC(best_backward), BIC(best_lasso_simple), BIC(best_lasso_comp2), BIC(Ajuste_optimo))) %>% 
+  #Configuraciones básicas
+  kbl(booktabs = TRUE, align = "c") %>%
+  #Personalizamos las filas de texto
+  row_spec(1:5, background = "#F8AADF") %>%
+  row_spec(6, background = "#7ECDDC")
+```
+(El proceso de cálculo de estos modelos y sus BIC se encuentran en los chunks "best_glm", "best_forward", "best_backward", "LassoSimple", "LassoComp" y "LassoGamma", respectivamente)
+
+Y como podemos ver en la tabla anterior, el modelo que parece tener el mínimo BIC es el modelo con interacciones de familia Gamma y liga identidad, teniendo por variables explicativas a las variables:
+
+`r paste(vars_gamma[2:13], collapse ="+")` +
+`r paste(vars_gamma[14:22], collapse ="+")` +
+`r paste(vars_gamma[22:29], collapse ="+")` +
+`r paste(vars_gamma[30:33], collapse ="+")`
+
+
+Que además, gracias al Chunk "Supuestos", podemos verificar que cumple con los supuestos, por lo que el modelo es idóneo para trabajar
+```{r Supuestos, include=FALSE}
+set.seed(123)
+X11()
+plot(simulateResiduals(Ajuste_optimo))
+```

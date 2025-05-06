@@ -1,0 +1,282 @@
+---
+title: "Repaso RLM Parte 2"
+subtitle: "Modelos de RLM con variables categóricas"
+author: "Seminario de Estadística 2024-1"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+date: "24/08/2023"
+geometry: margin=1.5cm
+---
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+gc()
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(6.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+```
+
+# Recordatorio
+Durante la ayudantía pasada nos dedicamos a recordar cómo se utiliza e interpreta la prueba $F$ asociada a la tabla ANOVA
+
+Sin embargo, nos quedaron varias dudas respecto a lo que estabamos haciendo cuando llegamos a utilizar variables categóricas. Por lo que vamos a intentar resolver estas dudas en la presenta ayudantía
+
+Primero que todo, vamos a recordar lo que nosotros suponemos:
+
+Nosotros estamos asumiendo que tenemos una variable dependiente $y$, la cual es explicada por un conjunto de $p$ variables explicativas y una variable aleatoria $\varepsilon$ de error, es decir
+
+$$y_i=1\times\beta_0+\beta_1x_{1i}+\beta_2x_{2i}+\cdots+\beta_px_{pi}+\varepsilon_i$$
+Nota: El 1 que multiplica a $\beta_0$ se utilizará más adelante :D
+
+Del cual ya hemos comentado sobre \textbf{LOS SUPUESTOS} que son aquellos en los que se basa toda la teoría que hemos visto hasta el momento
+
+Pero ahora debemos preguntarnos ¿De qué nos sirve el supuesto de $y$ siendo explicada por las variables $x_1,\cdots,x_p$? Y también ¿Qué estamos modelando?
+
+Pues bien, desde el punto de vista estadístico, lo que nosotros vamos a modelar a través de nuestros estimadores y toda la teoría desarrollada es $\mathbb{E}[y;x_1,\cdots,x_p]$, pero y ¿por qué modelamos eso?
+
+Pues bien, si prestamos suficiente atención, lo que nosostros tenemos con las variables $y_1,\cdots,y_p$ son variables aleatorias, que cumplen las siguientes propiedades:
+```{=tex}
+\begin{itemize}
+\item[i.] $\mathbb{E}[y_i]=\beta_0+\beta_1x_{1i}+\cdots+\beta_px_{pi}\hspace{.25 cm}\forall\hspace{.20 cm}i=1,\cdots,p$
+\item[ii.] $Cov(y_i,y_j)=Cov(\beta_0+\beta_1x_{1i}+\cdots+\beta_px_{pi}+\varepsilon_i,\beta_0+\beta_1x_{1j}+\cdots+\beta_px_{pj}+\varepsilon_j)=Cov(\varepsilon_i,\varepsilon_j)=0\hspace{.25 cm}\forall\hspace{.20 cm}i,j=1,\cdots,p;\hspace{.20 cm}i\neq{}j$
+\item[iii.] $Var(y_i)=Var(\beta_0+\beta_1x_{1i}+\cdots+\beta_px_{pi}+\varepsilon_i)=\sigma^2$
+\end{itemize}
+```
+Y además \textbf{SI SE CUMPLEN LOS SUPUESTOS} tiene como propiedades
+
+```{=tex}
+\begin{itemize}
+\item[i.] $y_i\sim{}N(\beta_0+\beta_1x_{1i}+\cdots+\beta_px_{pi},\sigma^2)\hspace{.25 cm}\forall\hspace{.20 cm}i=1,\cdots,p$
+\item[ii.] $y_i\perp{}y_j\hspace{.25 cm}\forall\hspace{.20 cm}i,j=1,\cdots,p;\hspace{.20 cm}i\neq{}j$
+\end{itemize}
+```
+
+Visto así, y recordando nuestras clases de inferencia estadística, la inferencia, intervalos de confianza y pruebas de hipótesis siempre se realiza sobre los parámetros desconocidos de la distribución de la variable aleatoria, la diferencia de este caso radica en que el parámetro $\mu=\mathbb{E}[y]$ depende a su vez de otros parámetros, por lo que los parámetros desconocidos son $p+2$, pues son $\beta_0,\beta_1,\cdots,\beta_p$ (hasta aquí son $p+1$) y además desconocemos $\sigma^2$
+
+Pero además de esto, $\mu=\mathbb{E}[y]$ también depende de las variables explicativas $x_1,\cdots,x_p$, sin embargo, estas variables las podemos dar por conocidas, pues son aquello que observamos para poder hacer inferencia sobre $y$, sin embargo, dada la dependencia, muchas veces se suele reescribir $\mathbb{E}[y]$ como 
+$$\mathbb{E}[y]=\mathbb{E}[y;x_1,x_2,\cdots,x_p]=\mathbb{E}[y|x_1,x_2,\cdots,x_p]$$
+
+# Interpretación del modelo de regresión lineal múltiple
+
+Una vez que hemos visto esto, podemos hasta darle una interpretación a cualquiera de las variables $x_i$ con $i\in\{1,\cdots,p\}$ a partir de los coeficientes $\beta$, pues
+
+$$\mathbb{E}[y;x_1,x_2,\cdots,x_i+1,\cdots,x_p]-\mathbb{E}[y;x_1,x_2,\cdots,x_i,\cdots,x_p]=$$
+$$\beta_0+\beta_1x_1+\cdots+\beta_i(x_i+1)+\cdots+\beta_px_p-(\beta_0+\beta_1x_1+\cdots+\beta_ix_i+\cdots+\beta_px_p)=$$
+$$=\beta_i(x_i+1)-\beta_ix_i=\beta_i$$
+Por lo que, si $\beta_i>0$, podemos decir que la esperanza de $y$ aumenta en $\beta_i$ cada vez que $x_i$ aumenta en 1. Y si si $\beta_i<0$, podemos decir que la esperanza de $y$ se reduce en $\beta_i$ cada vez que $x_i$ aumenta en 1
+
+Con esto, ya hemos entendido para qué nos sirve lo que hacemos, además del porqué lo hacemos, pero todo esto nos puede generar una duda
+
+¿Qué ocurre cuando una de las variables $x_1,\cdots,x_p$ es categórica?
+
+
+# En presencia de categorías
+
+Recordemos cómo luce el ejemplo en que nos quedamos, en él tenemos la variable $X1c$ categórica y la variable $X2$, en este caso, nuestra variable $X1c$ tiene $k=3$ categorías (a saber A1, A2 y A3), por lo que tenemos dos formas de enfrentar este problema
+
+Primero vamos a cargar nuestros datos y hacer el preprocesamiento habitual
+```{r EjemploRLM, echo=TRUE}
+#Leemos nuestros datos
+df_RLM<-read.csv("ejemplo3RLM.csv")
+```
+Nosotros tenemos dos posibilidades:
+
+```{=tex}
+\begin{itemize}
+  \item[i.] Generar $k$ variables ($X1c_{A1},X1c_{A2},X1c_{A3}$) dicotómicas (0 y 1) de tal forma que la variable $X1c_j=1$ si $X1c=j$ y $X1c_j=0$ e.o.c
+\end{itemize}
+```
+
+Haciéndolo en nuestros datos tendríamos lo siguiente:
+
+```{r MakeVar3, echo=TRUE}
+#Creamos cada una de las variables dicotómicas
+df_RLM$X1c_A1<-ifelse(df_RLM$X1c=="A1", 1, 0)
+df_RLM$X1c_A2<-ifelse(df_RLM$X1c=="A2", 1, 0)
+df_RLM$X1c_A3<-ifelse(df_RLM$X1c=="A3", 1, 0)
+```
+
+Con esto, nuestro modelo tendría la siguiente forma
+
+$$y_i=\beta_0+\beta_1X1c_{A1_i}+\beta_2X1c_{A2_i}+\beta_3X1c_{A3_i}+\beta_4X2_i+\varepsilon_i$$
+Y podemos hacer nuestro ajuste como normalmente hacemos
+
+```{r fitRLM1, echo=TRUE}
+#Ajustamos el modelo
+fit_RLM<-lm(y~X1c_A1+X1c_A2+X1c_A3+X2, data = df_RLM)
+#Obtenemos nuestro resumen
+summary(fit_RLM)
+```
+
+En este caso, podemos ver algunos detalles que comentaremos más adelante, de momento, pasemos primero a conocer cual es la otra forma de realizar nuestro ajuste
+
+```{=tex}
+\begin{itemize}
+  \item[ii.] Generar $k-1$ variables ($X1c_{A1}$ y $X1c_{A2}, X1c_{A1}$ y $X1c_{A3}$ o $X1c_{A2}$ y $X1c_{A3}$, no importan las dos elegidas) dicotómicas (0 y 1) de tal forma que la variable $X1c_j=1$ si $X1c=j$ y $X1c_j=0$ e.o.c
+\end{itemize}
+```
+
+En este caso, dado que ya tenemos hechas tres variables dicotómicas, vamos a simplemente introducir la información de dos de ellas en nuestro modelo, para el caso, vamos a elegir las variables $X1c_{A2}$ y $X1c_{A3}$, y tenemos
+
+```{r fitRLM2, echo=TRUE}
+#Ajustamos el modelo
+fit_RLM2<-lm(y~X1c_A2+X1c_A3+X2, data = df_RLM)
+#Obtenemos nuestro resumen
+summary(fit_RLM2)
+```
+
+De nueva cuenta tenemos algo de información que vamos a retomar más adelante, sin embargo lo primero que observamos es que nuestro modelo, en este caso, se ajusta como 
+
+$$y_i=\beta_0+\beta_1X1c_{A2_i}+\beta_2X1c_{A3_i}+\beta_3X2_i+\varepsilon_i$$
+
+Veremos más adelante cómo interpretar estos dos modelos que surgieron, sin embargo, lo primero que debemos responder es lo siguiente
+
+¿Es posible ajustar nuestro modelo de regresión sin necesidad de crear nuestras variables dicotómicas?
+
+La respuesta es SÍ, y además ya conocemos la forma de hacerlo, para esto nos ayudamos de la función "factor()", es decir, la misma función que hemos usado para transformar nuestras variables de tipo caractér, en variables con categorías, vamos a ver a continuación cómo se hace
+
+```{r fitRLM3, echo=TRUE}
+#Lo pasamos a tipo factor
+df_RLM$X1c<-factor(df_RLM$X1c)
+
+#Ajustamos el modelo, y ponemos la variable que fue transformada a tipo factor
+fit_RLM3<-lm(y~X1c+X2, data = df_RLM)
+
+#Obtenemos nuestro resumen
+summary(fit_RLM3)
+```
+En este caso, si nos fijamos también en la información proporcionada por el summary del modelo anterior, podemos darnos cuenta que en realidad presentan la misma información en las variables con los mismos nombres, por lo que, si nos damos cuenta, utilizar el tipo factor nos ayuda a realizar el proceso más rapidamente y sin la necesidad de crear las $k-1$ variables dicotómicas
+
+Pero, ¿Cómo decide R cuál es la variable que no aparece? 
+
+Para nosotros es fácil decidir, basta con no ponerla, pero para que R realice su elección, se basa en una propiedad de las variables tipo factor, que son los niveles
+
+En general, las variables tipo factor nos ayudan de muchas formas, en primer lugar ya vimos que las variables tipo factor nos permiten agilizar el ajuste de nuestros modelos, sin embargo, también nos permiten darles un cierto ordenamiento a las variables, a través de lo que se conoce como Niveles de la variable categórica. Pero para entender cómo funciona, vamos a ver los niveles de la variable tipo factor que nosotros construimos
+
+```{r Niveles_RLM, echo=TRUE}
+#Presentamos los niveles de la variable X1c
+levels(df_RLM$X1c)
+```
+Aquí podemos ver que los niveles son: 
+```{=tex}
+\begin{itemize}
+  \item[1.] A1 (Nivel de Referencia)
+  \item[2.] A2
+  \item[3.] A3
+\end{itemize}
+```
+Esto se debe a que la función "factor()" toma, por default, los niveles en orden alfabético, y una vez que vimos esto, también podemos notar que aquel que está en el nivel de referenciaq es aquel que R determina que no salga como variable de nuestros modelos de regresión.
+
+Sin embargo, esto es posible cambiarlo de múltiples maneras, a continuación mostramos un ejemplo de ello
+
+```{r Relevel1, echo=TRUE}
+#Aplicamos la función relevel
+df_RLM$X1c<-relevel(df_RLM$X1c, "A2")
+#Y ahora veamos el efecto que tuvo
+levels(df_RLM$X1c)
+```
+Podemos ver que relevel hace que el que elijas pase a ser el nivel de referencia, pudiendo elegir así cual variable sale del modelo
+
+Sin embargo, si queremos nosotros ordenar de una manera en particular, podemos hacerlo de la siguiente forma
+```{r relevel2, echo=TRUE}
+#Volvemos a asignar el tipo factor
+df_RLM$X1c<-factor(df_RLM$X1c, levels = c("A3", "A2", "A1"))
+#POdemos ver el resultado
+levels(df_RLM$X1c)
+```
+Y así podemos ver que nuestros niveles son los que definimos
+
+Posteriormente veremos una forma más de definir las categorías que aparecen, sin embargo, hasta aquí ya hemos visto todas las formas de utilizar los niveles y la generación de variables tipo factor, sin embargo, realizaremos nuestro ajuste con este último cambio, para que se note que en efecto ocurrió el cambio
+
+```{r fitRLM4, echo=TRUE}
+fit_RLM4<-lm(y~X1c+X2, data = df_RLM)
+#Obtenemos nuestro resumen
+summary(fit_RLM4)
+```
+Y podemos ver que en efecto, nuestra variable en el nivel de referencia es aquella que no aparece en nuestro modelo
+
+Hasta aquí todo bien pero entonces, ¿Qué pasaba con los datos que teníamos previamente? Y más aún, ¿Cómo interpretamos nuestro modelo?
+
+## Explicando los modelos
+
+Para esto, vamos a recuperar el primer modelo que utilizaremos para explicarlo, cuyo summary presentamos a continuación 
+
+```{r Summary1, echo=TRUE}
+#Recuperamos el pirmer summary
+summary(fit_RLM)
+```
+
+Aquí el detalle sería, ¿qué ocurre con la variable que tiene NA? 
+
+Cuando nosotros, en general, trabajamos con un modelo de regresión de la forma $y=X\beta$, donde $X$ es la matriz de covariables, un punto importante es calcular la matriz inversa de $X$, por lo que, buscamos que la matriz $X$ sea de rango completo (aunque también se podría utilizar la inversa generalizada), así que, notemos que en el modelo con las tres variables tendremos variables que se verían de la siguiente forma
+
+```{r matriz_X, echo=TRUE}
+data.frame(model.matrix(fit_RLM)[c(1,2,101,102,201,202),])
+```
+
+Podemos ver que la matriz no sería de rango completo, pues si sumamos las columnas $X1c_A1$, $X1c_A2$ y $X1c_A3$, obtendríamos la columa X.intercept (la cual representa el 1 que multiplica a $\beta_0$ que presentamos al inicio), por lo que, la forma óptima sería trabajar con sólo dos categorías en este caso 
+
+Sin embargo, también es posible utilizar las 3 categorías si eliminamos el intercepto (pues así se preserva el rango completo), todo depende de cómo prefieran trabajar :D
+
+Ahora, lo que realmente nos interesa, ¿cómo interpretamos este modelo?
+
+## Interpretación de modelos
+Ya que vimos que podemos trabajar con el modelo con dos categorías, vamos a usar ese
+
+```{r Summary2, echo=TRUE}
+#Recuperamos el segundo summary
+summary(fit_RLM4)
+```
+
+Con esto, lo que tenemos que hacer es escribir la esperanza de $y$ en términos de las diferentes categorías, y lo trabajamos realizando la explicación por casos
+
+```{=tex}
+\begin{itemize}
+  \item[X1c=A1.] En este caso, la esperanza de $y$ se modela como
+  $$\mathbb{E}[y;X1c=A1,X2]=\beta_0+\beta_1X1c_{A1}+\beta_2X1c{A2}+\beta_3X2$$ 
+  Sin embargo, dado que la variable dicotómica que se volvió 1 es sólo $X1c_{A1}$, tenemos $$\mathbb{E}[y;X1c=A1,X2]=\beta_0+\beta_1+\beta_3X2=(\beta_0+\beta_1)+\beta_3X2$$
+  \item[X1c=A2.] Este caso es de hecho análogo al anterior, cambiando que la variable que se hace 1 es la variable $X1c_{A2}$, así que 
+  $$\mathbb{E}[y;X1c=A2,X2]=\beta_0+\beta_1X1c_{A1}+\beta_2X1c{A2}+\beta_3X2=\beta_0+\beta_2+\beta_3X2=(\beta_0+\beta_2)+\beta_3X2$$
+  \item[X1c=A3.] En este último caso es en el que hay un cambio, pues ninguna de las variables binarias se hace 1, es decir, ambas son 0, así
+  $$\mathbb{E}[y;X1c=A3,X2]=\beta_0+\beta_1X1c_{A1}+\beta_2X1c{A2}+\beta_3X2=\beta_0+\beta_3X2=\beta_0+\beta_3X2$$
+\end{itemize}
+```
+
+Y si nos fijamos, a partir de las ecuaciones obtenidas, podemos ver que en realidad, en lo que está afectando la variable categórica, es en generar $k$ rectas que modelan la esperanza de $y$, en lugar de una sóla recta, con la diferencia de que están desplazadas en tanta distancia como lo es la $\beta$ asociada a cada nivel, es decir, la categoría $A1$ está desplazada $\beta_1$ unidades de $A_3$, algo que, si recordamos, podíamos apreciar en nuestra gráfica
+
+```{r FigRLM, echo=TRUE, fig.cap="Podemos observar el comportamiento de la variable y respecto a la variable X2, separadas por la variable X1c"}
+#Graficamos nuestras variables separadas por categoría
+ggplot(df_RLM, aes(x=X2, y=y, col=X1c))+
+  geom_point(size=2)+
+  ggtitle("Variable y vs X2", subtitle = "Comportamiento de la variable y respecto a la variable X2, separados por X1c")
+```
+
+Podemos ver en nuestra figura las tres rectas que se conforman a partir de cada categoría, y además, podemos ver que en efecto está desplazada 
+
+Pero además de esto, podemos darle un poco de interpretación a $X2$, recuperamos por un momento el summary
+
+```{r, SummaryF}
+summary(fit_RLM4)
+```
+Y podemos ver que el valor estimado de $\beta_3$ es aproximadamente 1.5, por l o que podríamos decir, de forma descriptiva, que con cada unidad en que aumenta la variable $X2$, la esperanza de $y$ aumenta en $1.5$ sin importar la categoría de la variable $X1c$
+
+En general, lo que acabamos de realizar se puede generar para cualquier $k$, ya sea que tengamos $k=2$ categorías o para $k>1000$ (Aunque sería raro tener tantas categorías :P)

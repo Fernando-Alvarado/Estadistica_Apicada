@@ -1,0 +1,310 @@
+---
+title: "Bootstrap en estadísticas más complejas"
+author: "César Valle"
+date: "15/04/2024"
+output: 
+  bookdown::pdf_document2:
+    number_sections: no
+    toc: no
+    highlight: tango
+geometry: margin=1.0cm
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(7.0, 2.8),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerías
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(boot)       # Para el método bootstrap
+library(purrr)      # Para utilizar map 
+```
+
+
+# Introducción
+En la clase anterior vimos cómo se utiliza el método bootstrap para poder realizar inferencia de las estadísticas de una muestra, sin embargo, nos quedamos con una idea muy básica de lo que se puede realizar con el bootstrap, por lo que en esta clase veremos varias extensiones de lo que podemos hacer
+
+# 1. Inferencia sobre un vector de estadísticas
+Al igual que como hacemos cuando sólo es una estadística, el proceso es el mismo, tomar submuestras, calcular las estadísticas, y finalmente calcular intervalos de confianza utilizando la distribución bootstraps de cada estadística
+
+## Ejemplo del caso 1
+Comenzaremos recordando el ejemplo que trabajamos la ayudantía pasada, donde queríamos calcular intervalos de confianza para la media de el porcentaje de la cuenta que se daba como propina a los meseros,
+
+En esta ocasión, vamos a realizar inferencia sobre una estadística que es un poco más dificil de medir sin una distribución, la mediana, y además, veremos una transformación muy extraña que se podría requerir estimar
+
+```{r bootstrap_propina, echo=TRUE}
+#Guardamos nuestros datos
+propinas <- c(22.7, 16.3, 13.6, 16.8, 29.9, 15.9, 14.0, 15.0, 14.1, 18.1, 22.8, 27.6,
+              16.4, 16.1, 19.0, 13.5, 18.9, 20.2, 19.7, 18.2, 15.4, 15.7, 19.0, 11.5,
+              18.4, 16.0, 16.9, 12.0, 40.1, 19.2)
+
+
+# Guardamos nuestra función
+tau_tip <- function(data, indices) {
+  #De nuevo, aquí van los índices
+  sample_data <- data[indices]
+  
+  #Aquí va la salida
+  #Usamos un vector con nombres, para que sea más fácil de 
+  #identificar las salidas más adelante
+  return(c("tranformacion" = log(mean(sample_data)), # no hay problemas, pues todos los valores son positivos
+           "mediana" = median(sample_data)))
+}
+
+#Usaremos una combinación de sapply y map, para poder tener de vuelta una lista, 
+#donde cada entrada sea la distribución bootstrap de una estadística 
+
+#Guardamos la cantidad de submuestras
+B<-10000
+
+#Primero vamos a utilizar un map, la semilla la fijamos después 
+tau_boot<- map(.x=c("tranformacion", "mediana"), .f= function(.x){
+  #Notemos que sólo realizamos dos iteraciones, pues son dos estadísticas
+  
+  #Ahora fijo la semilla
+  set.seed(123)
+  #Notemos que estoy reiniciando la semilla antes de cada sapply (que serán 2)
+  #Esto tiene por intención, que las submuestras sean las mismas para ambas
+  #estadísticas
+  sapply(1:B, function(x){
+    
+  #Al igual que antes, aquí obtenemos la submuestra
+  bootstrap_indices <- sample(1:length(propinas), replace = TRUE)
+  
+  #Posteriormente 
+  tau_tip(propinas, bootstrap_indices)[.x]
+  
+  #Pueden usar este espacio para comprobar que en efecto, las submuestras son
+  #las mismas
+  #if (x==5479){
+  #  print(bootstrap_indices)
+  #}
+  })
+})
+
+
+#Tenemos que el primer valor de la lista es la media y el segundo es la mediana 
+
+#Basta con aplicar histogramas para cada conjunto
+
+
+### Mediana
+hist(tau_boot[[2]], main="Histograma de las Medianas Bootstrap", xlab="Mediana de Bootstrap", ylab="Frecuencia", col="lightblue", breaks = 30)
+# Añadimos una línea para la media de las medianas de bootstrap (estimación)
+abline(v=mean(tau_boot[[2]]), col="red", lwd=2, lty=2)
+# Añadimos una línea para la mediana de la muestra original
+abline(v=median(propinas), col="blue", lwd=2)
+# Añadir una leyenda
+legend("topright", legend=c("Mediana de Bootstrap manual", "Mediana de la Muestra"), col=c("red", "blue"), lty=c(2, 1), lwd=2)
+
+
+### La transformación rara
+hist(tau_boot[[1]], main="Histograma del logaritmo de las medias Bootstrap", xlab="Logaritmo de la media Bootstrap", ylab="Frecuencia", col="lightblue", breaks = 30)
+# Añadimos una línea para la media de la estimación
+abline(v=mean(tau_boot[[1]]), col="red", lwd=2, lty=2)
+# Añadimos una línea para la estimación sobre la muestra original
+abline(v=log(mean(propinas)), col="blue", lwd=2)
+# Añadir una leyenda
+legend("topright", legend=c("Logaritmo de la media Bootstrap manual", "Logaritmo de la media de la Muestra"), col=c("red", "blue"), lty=c(2, 1), lwd=2)
+```
+Como podemos ver, la distribución bootstrap de la mediana no se comporta de una manera en que podamos decir que sea normal, por lo que nuestra mejor opción es utilizar el intervalo por medio de percentiles, utilizaremos la función boot directamente 
+
+Por otro lado, la distribución del logaritmo de las medias sí parece aproximarse a una normal
+
+```{r intervalos_tip, echo=TRUE}
+#Guardamos la información como teníamos previamente
+set.seed(123)
+boot_obj <- boot(data = propinas, statistic = tau_tip, R = B)
+
+#Después podemos calcular los intervalos de confianza, utilizamos el objeto boot
+#Y le indicamos el tipo de intervalo a calcular
+#Los intervalos de confianza con t de student siguen sin funcionar
+boot_ci1 <- boot.ci(boot_obj, type = c("perc", "norm"), index = 1) #Usamos index
+#Para indicar la variable que nos interesa
+boot_ci1
+boot_ci2 <- boot.ci(boot_obj, type = c("perc"), index = 2)
+boot_ci2
+```
+
+Con esto podemos ver que el único cambio que existe aquí es agregar el indice para especificar la variable de la que obtendremos el intervalo
+
+# 2. Inferencia utilizando muestras de vectores aleatorios
+Como bien sabemos, la información que nosotros podemos recibir, no necesariamente es un sólo valor por cada entrada, de hecho, nosotros hemos estado trabajando con bases de datos que pueden tener 5, 10, 20 o más variables, por lo que, es posible que nosotros queramos realizar inferencia sobre una estadística que involucre toda la información (como en un modelo de regresión)
+
+De nueva cuenta, el proceso es equivalente al que haríamos con una sóla variable, así que no hay gran diferencia con estos casos
+
+## Ejemplo del caso 2
+Utilizaremos ahora un conjunto de datos de la paquetería ISLR, que es el conjunto "Auto"
+
+Con estos datos, realizaremos la estimación de la varianza sobre los coeficientes de un modelo de regresión lineal múltiple
+
+```{r bootstrap_auto, echo=TRUE}
+#Cargamos los datos
+datos <- ISLR::Auto 
+
+#Generamos nuestra función
+t_auto_coef <- function(datos, index){
+  coeficientes <- coef(lm(mpg ~ horsepower, data = datos, subset = index))
+  return(coeficientes)
+}
+#Regresa ambos coeficientes 
+
+#Utilizando boot, podemos calcular su desviación estándar
+set.seed(123)
+boot(datos, t_auto_coef, B)
+
+#Y podemos comparar con el summary
+summary(lm(mpg ~ horsepower, data = datos))
+
+```
+
+Podemos ver que existe una diferencia muy pequeña en el valor de la desviación estándar, uno podría pensar en que esto se debe a la aleatoriedad del bootstrap, sin embargo, una de las cosas que debemos recordar es que el modelo de regresión o el uso de modelos lineales generalizados requieren del cumplimiento de diversos supuestos, los cuales, de no cumplirse nos pueden llevar a una estimación errónea de la varianza, sin embargo el método bootstrap no requiere de supuestos, lo podemos aplicar de manera directa
+
+Por lo que, aquí además tenemos un uso adicional de bootstrap, que es ayudarnos a determinar si alguna estimación es correcta, mediante la comparación de la varianza 
+
+# 3. Comparación entre dos variables
+Algo que solíamos hacer durante inferencia estadística, y también mediante el uso de modelos de regresión (en el caso de problemas tipo ANOVA), es la comparación entre medias, e incluso llegamos a hacer comparaciones entre medianas en modelos no paramétricos 
+
+Sin embargo, en la mayoría de casos, de nueva cuenta, necesitábamos de alguna distribución en la que basarnos para que podamos trabajar
+
+\begin{itemize}
+  \item[i] Calculamos un remuestreo de la variable $X$, $S^x_1$
+  \item[ii] Calculamos un remuestreo de la variable $Z$ (independiente al calculado de $X$), $S^z_1$
+  \item[iii] Calculamos $\tau(S^z_1)-\tau(S^x_1)$ y lo agregamos a la distribución bootstrap
+  \item[iv] Repetimos B veces, y los valores obtenidos en el paso iii, serán los que conformen nuestra distribución bootstrap
+\end{itemize}
+
+Con esto en mente, falta preguntarnos, ¿cómo calculamos nuestro intervalo de confianza?
+
+Pues bien, siempre podemos utilizar los intervalos de confianza que ya hemos estado trabajando, aunque tl vez con algunos cambios, veremos a continuación cómo trabajar con esto
+
+## Ejemplo del caso 3
+
+A continuación vamos a trabajar con datos de niños, en los que se midió el tiempo que hablan consigo mismos, se tomó el porcentaje de tiempo en que llevaron a cabo una charla que no correspondía con el reto que estaban enfrentando (hacer aritmética), y es el que se presenta a continuación 
+
+```{r, echo=TRUE}
+boys <- c(4.9, 5.5, 6.5, 0.0, 0.0, 3.0, 2.8, 6.4, 1.0, 0.9, 0.0, 28.1, 8.7, 1.6, 5.1, 17.0, 4.7, 28.1)
+
+girls <- c(0.0, 1.3, 2.2, 0.0, 1.3, 0.0, 0.0, 0.0, 0.0, 3.9, 0.0, 10.1, 5.2, 3.2, 0.0)
+
+hist(boys, main="Histograma del porcentaje de charla fuera del tema (en niños)" , xlab="Porcentaje de tiempo", ylab="Frecuencia", col="#EC5959")
+
+hist(girls, main="Histograma del porcentaje de charla fuera del tema (en niñas)" , xlab="Porcentaje de tiempo", ylab="Frecuencia", col="#93EA78")
+```
+
+Podemos notar de antemano, que ninugna de las dos poblaciones parece tener una distribución normal, que es lo que más facilitaría nuestro trabajo, por otro lado, también podemos ver que hay diferente cantidad de valores en cada uno de los grupos, pues tenemos 15 muestras de niños, y 18 de niñas, este es otro motivo por el que el remuestreo se realiza por separado, pues podemos tener diferente cantidad de muestra y podría haber errores con el código 
+
+Dicho esto, ¿cómo realizaríamos nuestro proceso? Tomando en cuenta que no podemos simplemente usar un boostratp, pues requerimos de dos remuestreos en cada caso, podríamos en su lugar, utilizar un ciclo for.
+
+A continuación veremos un ejemplo, intentando comparar las medias de porcentajes que observamos previamente
+
+```{r ciclo, echo=TRUE}
+#Guardamos las repeticiones
+B = 10000
+
+#Guardamos la función
+comparativa<-function(data_x,data_z,indices_x,indices_z){
+  #Extraemos los valores de cada conjunto
+  valores_x<-data_x[indices_x]
+  valores_z<-data_z[indices_z]
+  
+  #Y regresamos la diferencia
+  return(mean(valores_x)-mean(valores_z))
+}
+
+diferencias<-c()
+#Corremos el for
+for (i in (1:B)){
+  indices_x<-sample(1:length(boys), replace = TRUE)
+  indices_z<-sample(1:length(girls), replace = TRUE)
+  diferencias<-c(diferencias,comparativa(boys,girls,indices_x,indices_z))
+}
+```
+
+Sin emabargo, seguramente tenemos una mejor manera de obtener estos valores, haremos uso de la función boot
+
+```{r boot, echo=TRUE}
+#Vamos a guardar una función de sólo la media
+media<- function(data, indices){
+  valores<- data[indices]
+  return(mean(valores))
+}
+
+#Ahora vamos a utilizar dos boot, uno para cada uno de los grupos
+set.seed(123)
+boot_x<- boot(boys, media, B)
+boot_z<- boot(girls, media, B)
+
+#Finalmente, podemos generar la distribución bootstrap de la diferencia de medias utilizando lo siguiente
+
+#Los objetos boot contienen la información llamada t0 
+#(que es la estimación de la muestra original) y la información t,
+#que contiene las estimaciones de cada submuestra
+
+#Entonces, ya tenemos los 10 mil valores, en cada uno de los objetos boot
+diferencia_boot<-boot_x$t-boot_z$t
+
+#Y podemos graficar
+hist(diferencia_boot, main="Histograma del porcentaje de charla fuera del tema (en niños)" , xlab="Diferencia en las medias", ylab="Frecuencia", col="#9FA741", breaks = 30)
+# Añadimos una línea para la media de la estimación
+abline(v=mean(diferencia_boot), col="red", lwd=2, lty=2)
+# Añadimos una línea para la estimación sobre la muestra original
+abline(v=boot_x$t0-boot_z$t0, col="blue", lwd=2)
+# Añadir una leyenda
+legend("topright", legend=c("Diferencia de medias Bootstrap manual", "Diferencia de medias de la Muestra original"), col=c("red", "blue"), lty=c(2, 1), lwd=2)
+```
+
+En este caso, podemos ver que a pesar de cómo se distribuían los valores originales, las diferencias sí parecen tener una distribución normal, además de que el bias sí parecer ser pequeño, por lo que podemos usar bootstrap sin problemas, y utilizaremos un intervalo student un poco diferente, por tratarse de una diferencia de valores, el intervalo a utilizar será
+
+$$(\widehat{X}_{boot}-\widehat{Z}_{boot})\pm{}t_{\alpha/2,v}se_{boot}$$
+
+Donde $v = \dfrac{\left[(se_x)^2+(se_z^2)\right]^2}{\frac{(se_x)^4}{m-1}+\frac{(se_z)^4}{n-1}}$ (redondeando hacia abajo), con $se_x$ la desviación estándar de la estadística de la variable $x$, y $se_z$ la de la variable $z$, además, $m$ el tamaño de muestra de la variable $x$ y $n$ el de la variable $z$
+
+Veamos cómo sería esto
+
+```{r intervalos, echo=TRUE}
+#Guardamos las desviaciones estándar
+se_x<-sd(boot_x$t)
+se_z<-sd(boot_z$t)
+#Guardamos el valor v
+v <- floor((se_x^2+se_z^2)^2/(se_x^4/(length(boys)-1)+se_z^4/(length(girls)-1)))
+
+#Calculamos los intervalos
+alpha<-.05
+extremos<-qt(c(alpha/2,1-alpha/2), v)
+Student<-extremos*sd(diferencia_boot)+mean(diferencia_boot)
+
+#Aunque claro, también podemos hacerlo por el método de percentiles
+Percentiles <- quantile(diferencia_boot, probs = c(alpha/2, 1 - alpha/2))
+
+#Y los presentamos
+intervalos<-rbind(Percentiles, Student)
+intervalos%>%kbl(booktabs = TRUE, align = "c")
+```
+
+Como ya sabíamos, el intervalo realizado con la t de student, es una forma más conservadora, por lo que podría ser óptimo para asegurar la confianza, sin embargo, dicho intervalo sólo funcionaría de verse la distribución normal, pues distribuciones diferentes podrían funcionar mejor mediante percentiles 
+
+Sin embargo, sin importar con cual decidamos trabajar, hay algo que sí podemos utilizar, en este caso, dado que ninguno de los intervalos de confianza contiene el valor cero, podemos hacer uso de las equivalencias entre intervalos de confianza y pruebas de hipótesis, es decir, con una significancia de .05 podemos decir que las medias sí son diferentes (pues el 0 no está en el intervalo)
+
+Así que esto no sólo sirve para realizar intervalos de confianza, también nos podría servir para realizar pruebas de hipótesis sencillas
