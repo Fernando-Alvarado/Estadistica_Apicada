@@ -59,7 +59,7 @@ setwd("C:/Users/ferna/Documents/Estadistica_Aplicada/Estadistica_Bayesiana/Tarea
 
 fit <- stan(file = "./simulacion.stan", data = data_stan)
 print(fit, pars=c("theta", "p"))
-
+s
 
 
 

@@ -1,0 +1,217 @@
+---
+author: "Fernando Alvarado"
+date: "2025-03-12"
+output:
+  html_document:
+    fig_width: 22
+    fig_height: 5
+    keep_md: true
+    df_print: paged
+---
+
+
+```{r setup, include=FALSE}
+#Empezamos limpiando nuestro ambiente
+rm(list = ls(all.names = TRUE))
+
+
+# Configuración global de los bloques de código (chunk's)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+#Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
+
+# Librerias
+library(dplyr)      # Para el manejo de datos
+library(tidyr)
+library(tibble)    # Manejo de df
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(knitr)
+library(purrr)      # Para la función map y map2
+
+library(boot)       # Para el bootstrap
+
+#Definimos la semilla para la reproducibilidad
+set.seed(1234)
+
+```
+
+
+
+
+# Bootstrap no parametrico 
+
+
+### Inciso A
+
+```{r}
+theta <- 1.3
+n <- 20
+B <- 10000
+
+vector_tau <- numeric(B)
+
+for (i in 1:B) {
+  datos <- rpois(n, lambda = theta)
+  vector_tau[i] <- mean(datos == 0)  # Estimador insesgado para e^{-θ}
+}
+
+Esperanza_tau <- mean(vector_tau)
+Varianza_tau <- var(vector_tau)
+
+# Mostrar resultados
+Esperanza_tau
+Varianza_tau
+
+# Histograma
+hist(vector_tau, main = "Estimadores de τ = e^{-θ}", xlab = "τ̂")
+
+
+
+
+
+```
+
+b) 
+
+
+
+```{r}
+datosb <- c(1, 2, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Inciso B
+
+
+
+
+
+
+### Inciso C
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
