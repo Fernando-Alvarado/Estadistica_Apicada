@@ -436,3 +436,5 @@ createFolds(Datos$Salary, k = 5, list = FALSE, returnTrain = FALSE) #repetir B v
 # v) Cross-validation pitfalls when selecting and assessing regression and classification models
 #    Krstajic et. al. (2014), 
 
+#MSE, no tiene punto de referencia, solo se compara 
+#R^2, nos dice la corrwlacion entre la y a la y gorrito, quiere decir que minetras mas cercano a 1 mejor 

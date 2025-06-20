@@ -91,6 +91,23 @@ datosb <- c(1, 2, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0)
 
 
 
+estimador <- function(data, indices) {
+  muestra <- data[indices]
+  t_hat <- ((length(muestra) - 1) / length(muestra)) * sum(muestra)
+  return(t_hat)
+}
+
+resultado_boot <- boot(data = datosb, statistic = estimador, R = 10000)
+
+# Mostrar resultados
+resultado_boot
+
+# Intervalo de confianza
+boot.ci(resultado_boot, type = "perc")
+
+# Histograma
+hist(resultado_boot$t, main = "Histograma de τ̂ bootstrap", xlab = "τ̂")
+
 ```
 
 
